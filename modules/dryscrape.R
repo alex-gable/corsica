@@ -14,3 +14,9 @@ do_nothing <- function() {
   NULL
   
 }
+
+do_nothing_again <- function() {
+  
+  NULL
+  
+}
