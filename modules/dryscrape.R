@@ -9,3 +9,8 @@
 require(RCurl); require(rjson); require(dplyr)
 
 ## Meta Functions
+do_nothing <- function() {
+  
+  NULL
+  
+}
