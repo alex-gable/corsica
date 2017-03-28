@@ -66,6 +66,18 @@ moving <- function(x, n = 5) {
     
   }
   
-  as.numeric(v)
+  return(as.numeric(v))
+  
+}
+
+# Brier Score
+brier <- function(act, pred) {
+  
+  ## Description
+  # brier() returns the Brier score obtained from a given prediction and known result
+  
+  bri <- sum((act - pred)^2)/length(act)
+  
+  return(bri)
   
 }
