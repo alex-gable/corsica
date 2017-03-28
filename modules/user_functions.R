@@ -1,12 +1,15 @@
 ### USER FUNCTIONS ###
 # Last edit: Manny (2017-03-28)
 
+
 ## Description
 # User Functions are meta functions and methods for more efficient code writing
 # Dependencies: dplyr
 
+
 ## Dependencies
 require(dplyr)
+
 
 ## General Functions
 # Numeric Absolute
@@ -79,5 +82,19 @@ brier <- function(act, pred) {
   bri <- sum((act - pred)^2)/length(act)
   
   return(bri)
+  
+}
+
+# NA if NULL
+na_if_null <- function(x) {
+  
+  ## Description
+  # na_if_null() returns an object's value if it is not NULL and NA otherwise
+  
+  return(ifelse(is.null(x) == TRUE,
+                NA,
+                x
+                )
+         )
   
 }
