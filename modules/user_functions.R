@@ -1,5 +1,5 @@
 ### USER FUNCTIONS ###
-# Last edit: Manny (2017-03-27)
+# Last edit: Manny (2017-03-28)
 
 ## Description
 # User Functions are meta functions and methods for more efficient code writing
@@ -8,7 +8,7 @@
 ## Dependencies
 require(dplyr)
 
-## Functions
+## General Functions
 # Numeric Absolute
 nabs <- function(x) {
   
