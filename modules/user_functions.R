@@ -98,3 +98,38 @@ na_if_null <- function(x) {
          )
   
 }
+
+# Do Call Apply
+dcapply <- function(x, fun, combine, cores, ...) {
+  
+  ## Description
+  # dcapply() uses do.call() to merge the products of an applied function according to specifications
+  # The function will be applied in parallel if cores >= 1
+  
+  if(cores > 1) {
+    
+    registerDoMC(cores)
+  
+    chunks <- split(x, cut(1:length(x), cores))
+    
+    foreach(i = 1:cores, .combine = c) %dopar% {
+      
+      chunks[[i]] %>%
+        lapply(fun, ...) 
+      
+    } -> list
+    
+    combined <- do.call(combine, list)
+    
+  } else {
+    
+    
+    list <- lapply(x, fun, ...)
+    
+    combined <- do.call(combine, list)
+    
+  }
+  
+  return(combined)
+  
+}
