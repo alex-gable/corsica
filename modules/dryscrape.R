@@ -267,6 +267,45 @@ ds.get_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozill
   
 }
 
+# Get Schedule
+ds.get_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+  
+  ## Description
+  # get_schedule() imports the schedule page corresponding to a given date range and returns a JSON list object
+  
+  url <- paste("https://statsapi.web.nhl.com/api/v1/schedule?startDate=",
+               as.character(start),
+               "&endDate=",
+               as.character(end),
+               sep = ""
+               )
+  
+  raw_text <- NULL
+  
+  while(class(raw_text) != "character" & try_tolerance > 0) {
+    
+    try(
+        url %>%
+          getURL(header = FALSE,
+                 .opts = curlOptions(referer = "nhl.com",
+                                     verbose = TRUE,
+                                     followLocation = TRUE,
+                                     useragent = agents[sample(1:length(agents), 1)]
+                                     )
+                 )
+        ) ->
+    raw_text
+    
+    try_tolerance <- try_tolerance - 1
+    
+  }
+  
+  raw_json <- fromJSON(raw_text)
+  
+  return(raw_json)
+  
+}
+
 # Parse PBP Event
 ds.parse_event <- function(x) {
   
@@ -372,10 +411,10 @@ ds.parse_media <- function(x) {
 
 ## General Functions
 # Scrape
-ds.scrape <- function(season, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+ds.scrape_game <- function(season, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
   
   ## Description
-  # scrape() collects and parses the data for a game corresponsing to a given season and game ID
+  # scrape_game() collects and parses the data for a game corresponsing to a given season and game ID
   # A list object containing c([[1]] = PBP, [[2]] = Shifts, [[3]] = Highlights, [[4]] = Media) is returned
   
   season <- as.character(season); game_id <- as.character(game_id)
@@ -452,4 +491,17 @@ ds.scrape <- function(season, game_id, try_tolerance = 3, agents = "Mozilla/5.0 
   return(game_list)
   
 }
+
+# Scrape Team Profile
+ds.scrape_team_profile <- function() {}     # TO BE ADDED
+
+# Scrape Player Profile
+ds.scrape_player_profile <- function() {}     # TO BE ADDED
+
+# Scrape Schedule
+ds.scrape_schedule <- function() {}     # TO BE ADDED
+
+# Compile Games
+ds.compile_games <- function() {}     # TO BE ADDED
+
 
