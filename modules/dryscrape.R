@@ -1,5 +1,5 @@
 ### DRYSCRAPE ###
-# Last edit: Manny (2017-03-28)
+# Last edit: Manny (2017-03-29)
 
 
 ## Description
@@ -52,7 +52,7 @@ ds.get_pbp <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -91,7 +91,7 @@ ds.get_shifts <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -131,7 +131,7 @@ ds.get_media <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -173,7 +173,7 @@ ds.get_highlights <- function(season, game_id, try_tolerance = 3, agents = "Mozi
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -212,7 +212,7 @@ ds.get_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla/5.
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -249,7 +249,7 @@ ds.get_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozill
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -288,7 +288,7 @@ ds.get_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0
         url %>%
           getURL(header = FALSE,
                  .opts = curlOptions(referer = "nhl.com",
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      followLocation = TRUE,
                                      useragent = agents[sample(1:length(agents), 1)]
                                      )
@@ -321,8 +321,10 @@ ds.parse_event <- function(x) {
       ) ->
     player_ids
   
-  data.frame(game_date = as.Date(x$about$dateTime),
+  data.frame(game_date = NA,
              game_id = NA,
+             season = NA,
+             session = NA,
              event_id = nabs(x$about$eventIdx),
              event_code = as.character(x$result$eventCode),
              event_type = as.character(x$result$eventTypeId),
@@ -355,7 +357,10 @@ ds.parse_shift <- function(x) {
   
   data.frame(game_date = NA,
              game_id = nabs(x$gameId),
+             season = NA,
+             session = NA,
              shift_number = nabs(x$eventNumber),
+             shift_period = nabs(x$period),
              shift_start = as.character(x$startTime),
              shift_end = as.character(x$endTime),
              shift_duration = na_if_null(as.character(x$duration)),
@@ -376,10 +381,12 @@ ds.parse_highlight <- function(x) {
   
   data.frame(game_date = NA,
              game_id = NA,
+             season = NA,
+             session = NA,
              event_id = x$id,
              highlight_id = x$feeds[[1]]$neulionId,
-             event_team_1 = x$t1,
-             event_team_2 = x$t2,
+             event_team_1 = na_if_null(x$t1),
+             event_team_2 = na_if_null(x$t2),
              event_period = x$p,
              event_seconds = x$sip,
              event_type = x$type
@@ -408,23 +415,97 @@ ds.parse_media <- function(x) {
   
 }
 
+# Parse Game
+ds.parse_game <- function(x) {
+  
+  ## Description
+  # parse_game() parses a single game from the Schedule >> Date JSON object and returns a data frame
+  # parse_game() is an inner function for parse_date()
+  
+  data.frame(game_id = nabs(x$gamePk),
+             game_date = as.Date(x$gameDate),
+             season = as.character(x$season),
+             session = as.character(x$gameType),
+             game_status = as.character(x$status$detailedState),
+             away_team_id = nabs(x$teams$away$team$id),
+             home_team_id = nabs(x$teams$home$team$id),
+             game_venue = na_if_null(as.character(x$venue$name)),
+             game_datetime = parse_date_time(x$gameDate, "y-m-d.H:M:S.")
+             ) ->
+    game_df
+  
+  return(game_df)
+  
+}
+
+# Parse Date
+ds.parse_date <- function(x) {
+  
+  ## Description
+  # parse_date() parses a single date from the Schedule JSON object and returns a data frame
+  # parse_date() uses an inner function parse_game()
+  
+  date_df <- dcapply(x$games,
+                     ds.parse_game,
+                     "rbind",
+                     cores = 1
+                     )
+  
+  return(date_df)
+  
+}
+
+# Seconds from MS
+ds.seconds_from_ms <- function(ms) {
+  
+  ## Description
+  # seconds_from_ms() returns a numeric vector of representation in seconds of a given vector in M:S format
+  
+  strsplit(as.character(ms), ":") %>%
+    unlist() %>%
+    nabs() %>%
+    matrix(ncol = 2,
+           byrow = TRUE
+           ) ->
+    time_mat
+  
+  seconds <- 60*time_mat[, 1] + time_mat[, 2]
+
+  return(seconds)
+    
+}
+
 
 ## General Functions
+# Who
+ds.who <- function(player_id) {
+  
+  ## Description
+  # who() searches a given player ID and returns the player's full name
+  
+  player <- ds.get_player_profile(player_id)
+  
+  full_name <- player$people[[1]]$fullName
+  
+  return(full_name)
+  
+}
+
 # Scrape
-ds.scrape_game <- function(season, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
   
   ## Description
   # scrape_game() collects and parses the data for a game corresponsing to a given season and game ID
   # A list object containing c([[1]] = PBP, [[2]] = Shifts, [[3]] = Highlights, [[4]] = Media) is returned
   
-  season <- as.character(season); game_id <- as.character(game_id)
+  season_ <- as.character(season); game_id_ <- as.character(game_id)
   
-  year <- substr(season, 0, 4)
+  year <- substr(season_, 0, 4)
   
-  pbp <- ds.get_pbp(year, game_id, try_tolerance, agents)
-  shifts <- ds.get_shifts(year, game_id, try_tolerance, agents)
-  media <- ds.get_media(year, game_id, try_tolerance, agents)
-  highlights <- ds.get_highlights(season, game_id, try_tolerance, agents)
+  pbp <- ds.get_pbp(year, game_id_, try_tolerance, agents)
+  shifts <- ds.get_shifts(year, game_id_, try_tolerance, agents)
+  media <- ds.get_media(year, game_id_, try_tolerance, agents)
+  highlights <- ds.get_highlights(season_, game_id_, try_tolerance, agents)
   
   pbp_df <- dcapply(pbp$liveData$plays$allPlays, 
                     ds.parse_event, 
@@ -450,12 +531,46 @@ ds.scrape_game <- function(season, game_id, try_tolerance = 3, agents = "Mozilla
                       cores = 1
                       )
   
+  game_date_ <- as.Date(pbp$gameData$datetime$dateTime)
+  session_ <- as.character(pbp$gameData$game$type)
+  game_id_unique <- nabs(pbp$gameData$game$pk)
+  game_venue_ <- as.character(pbp$gameData$venue$name)
+  
+  pbp_df %>%
+    mutate(game_date = game_date_,
+           game_id = game_id_unique,
+           season = as.character(season_),
+           session = session_,
+           game_venue = game_venue_
+           ) %>%
+    data.frame() ->
+    pbp_df
+  
+  shift_df %>%
+    mutate(game_date = game_date_,
+           season = as.character(season_),
+           session = session_,
+           game_venue = game_venue_
+           ) %>%
+    data.frame() ->
+    shift_df
+  
+  highlight_df %>%
+    mutate(game_date = game_date_,
+           game_id = game_id_unique,
+           season = as.character(season_),
+           session = session_,
+           game_venue = game_venue_
+           ) %>%
+    data.frame() ->
+    highlight_df
+  
   full_highlight <- merge(highlight_df,
                           media_df,
                           by.x = "highlight_id",
                           by.y =  "highlight_id"
                           )
-  
+    
   media_preview_headline <- media$editorial$preview$items[[1]]$headline
   media_preview_subhead <- media$editorial$preview$items[[1]]$subhead
   media_preview_description <- media$editorial$preview$items[[1]]$seoDescription
@@ -474,13 +589,17 @@ ds.scrape_game <- function(season, game_id, try_tolerance = 3, agents = "Mozilla
     
   }
   
-  full_media <- c("preview_headline" = na_if_null(media_preview_headline),
-                  "preview_subhead" = na_if_null(media_preview_subhead),
-                  "preview_description" = na_if_null(media_preview_description),
-                  "recap_headline" = na_if_null(media_recap_headline),
-                  "recap_subhead" = na_if_null(media_recap_subhead),
-                  "recap_description" = na_if_null(media_recap_description)
-                  )
+  full_media <- data.frame(game_date = game_date_,
+                           game_id = game_id_unique,
+                           season = as.character(season_),
+                           session = session_,
+                           preview_headline = na_if_null(media_preview_headline),
+                           preview_subhead = na_if_null(media_preview_subhead),
+                           preview_description = na_if_null(media_preview_description),
+                           recap_headline = na_if_null(media_recap_headline),
+                           recap_subhead = na_if_null(media_recap_subhead),
+                           recap_description = na_if_null(media_recap_description)
+                           )
   
   game_list <- list(pbp_df,
                     shift_df,
@@ -493,15 +612,189 @@ ds.scrape_game <- function(season, game_id, try_tolerance = 3, agents = "Mozilla
 }
 
 # Scrape Team Profile
-ds.scrape_team_profile <- function() {}     # TO BE ADDED
+ds.scrape_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+  
+  ## Description
+  # scrape_team_profile() collects and parses the data for a team corresponsing to a given team ID
+  # A data frame is returned
+  
+  team_id_ <- nabs(team_id)
+  
+  team <- ds.get_team_profile(team_id_, try_tolerance, agents)
+  
+  data.frame(team_id = nabs(team$teams[[1]]$id),
+             team_name = team$teams[[1]]$name,
+             team_alias = team$teams[[1]]$abbreviation,
+             team_venue = na_if_null(team$teams[[1]]$venue$name),
+             team_location = na_if_null(team$teams[[1]]$locationName),
+             team_city = na_if_null(team$teams[[1]]$venue$city),
+             team_division_id = na_if_null(nabs(team$teams[[1]]$division$id)),
+             team_division_name = na_if_null(team$teams[[1]]$division$name),
+             team_conference_id = na_if_null(nabs(team$teams[[1]]$conference$id)),
+             team_conference_name = na_if_null(team$teams[[1]]$conference$name),
+             franchise_id = nabs(team$teams[[1]]$franchiseId),
+             is_active = as.logical(team$teams[[1]]$active)
+             ) ->
+    team_df
+  
+  return(team_df)
+  
+}
 
 # Scrape Player Profile
-ds.scrape_player_profile <- function() {}     # TO BE ADDED
+ds.scrape_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+  
+  ## Description
+  # scrape_player_profile() collects and parses the data for a player corresponsing to a given player ID
+  # A data frame is returned
+  
+  player_id_ <- nabs(player_id)
+  
+  player <- ds.get_player_profile(player_id_, try_tolerance, agents)
+  
+  data.frame(player_id = nabs(player$people[[1]]$id),
+             player_name_first = as.character(player$people[[1]]$firstName),
+             player_name_last = as.character(player$people[[1]]$lastName),
+             player_name_full = as.character(player$people[[1]]$fullName),
+             player_jerseynum = na_if_null(nabs(player$people[[1]]$primaryNumber)),
+             player_position = na_if_null(as.character(player$people[[1]]$primaryPosition$code)),
+             player_birth_date = na_if_null(as.Date(player$people[[1]]$birthDate)),
+             player_birth_city = na_if_null(as.character(player$people[[1]]$birthCity)),
+             player_birth_country = na_if_null(as.character(player$people[[1]]$birthCountry)),
+             player_nationality = na_if_null(as.character(player$people[[1]]$nationality)),
+             player_height = na_if_null(as.character(player$people[[1]]$height)),
+             player_weight = na_if_null(nabs(player$people[[1]]$weight)),
+             player_handedness = na_if_null(as.character(player$people[[1]]$shootsCatches)),
+             is_active = as.logical(player$people[[1]]$active),
+             is_rookie = as.logical(player$people[[1]]$rookie)
+             ) ->
+    player_df
+  
+  return(player_df)
+  
+}
 
 # Scrape Schedule
-ds.scrape_schedule <- function() {}     # TO BE ADDED
+ds.scrape_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+  
+  ## Description
+  # scrape_schedule() collects and parses the schedule data for a range corresponsing to a given start and end date
+  # A data frame is returned
+  
+  start_ <- as.character(start); end_ <- as.character(end)
+  
+  sched <- ds.get_schedule(start_, end_, try_tolerance, agents)
+  
+  sched_df <- dcapply(sched$dates,
+                      ds.parse_date, 
+                      "rbind", 
+                      cores = 1
+                      )
+  
+  return(sched_df)
+  
+}
 
 # Compile Games
-ds.compile_games <- function() {}     # TO BE ADDED
+ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36") {
+  
+  ## Description
+  # compile_games() collects, parses and compiles all game data corresponding to a given vector of game IDs and season
+  # A list object containing c([[1]] = PBP, [[2]] = Shifts, [[3]] = Highlights, [[4]] = Media) is returned
+  
+  foreach(g = as.character(games)) %do% {
+    
+    cat(g,
+        "...",
+        "\n",
+        sep = ""
+        )
+    
+    ds.scrape_game(g, season, try_tolerance, agents)
+    
+  } -> nested_games
+  
+  unpacked <- do.call(Map, c(rbind, nested_games))
+  
+  pbp <- unpacked[[1]]
+  shifts <- unpacked[[2]]
+  highlights <- unpacked[[3]]
+  media <- unpacked[[4]]
+  
+  pbp$game_seconds = 1200*(nabs(pbp$game_period) - 1) + ds.seconds_from_ms(pbp$period_time_elapsed)
+  
+  shifts$start_seconds = 1200*(nabs(shifts$shift_period) - 1) + ds.seconds_from_ms(shifts$shift_start)
+  shifts$end_seconds = 1200*(nabs(shifts$shift_period) - 1) + ds.seconds_from_ms(shifts$shift_end)
+  
+  bind_rows(
+    shifts %>%
+      filter(!is.na(shift_duration)) %>%
+      group_by(game_id,
+               game_date,
+               season,
+               session,
+               team_id,
+               shift_number,
+               start_seconds
+               ) %>%
+      rename(game_seconds = start_seconds, event_team = team_id) %>%
+      summarise(event_type = "ON",
+                game_period = nabs(first(shift_period)),
+                players_substituted = paste(unique(player_id), collapse = ", ")
+                ) %>%
+      data.frame(),
+   
+     shifts %>%
+       filter(!is.na(shift_duration)) %>%
+       group_by(game_id,
+                game_date,
+                season,
+                session,
+                team_id,
+                shift_number,
+                end_seconds
+                ) %>%
+       rename(game_seconds = end_seconds, event_team = team_id) %>%
+       summarise(event_type = "OFF",
+                 game_period = nabs(first(shift_period)),
+                 players_substituted = paste(unique(player_id), collapse = ", ")
+                 ) %>%
+       data.frame()
+  ) -> shift_summary
+  
+  merge(pbp,
+        highlights %>%
+          rename(highlight_code = highlight_id) %>%
+          select(game_id, event_id, highlight_code, highlight_title:highlight_image_url),
+        by.x = c("game_id", "highlight_id"),
+        by.y = c("game_id", "event_id"),
+        all.x = TRUE
+        ) %>%
+    data.frame() ->
+    new_pbp
+  
+  bind_rows(new_pbp,
+            shift_summary
+            ) %>%
+    mutate(priority = 1*(event_type %in% c("TAKEAWAY", "GIVEAWAY", "MISSED_SHOT", "HIT", "SHOT", "BLOCKED_SHOT")) +
+                      2*(event_type == "GOAL") +
+                      3*(event_type == "STOP") +
+                      4*(event_type == "PENALTY") +
+                      5*(event_type == "OFF") +
+                      6*(event_type == "ON") +
+                      7*(event_type == "FACEOFF")
+           ) %>% 
+    arrange(game_id,
+            game_period,
+            game_seconds,
+            priority
+            ) %>%
+    mutate(event_index = cumsum(!is.na(game_id))) ->
+    new_pbp
+  
+  ### TO ADD: HOME/AWAY TEAMS, HOME/AWAY ON ICE
+  ### RETURN ORDERED + STRUCTURED DATA FRAME
+  
+}
 
 
