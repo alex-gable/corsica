@@ -28,6 +28,21 @@ c("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, li
   ) ->
   ds.user_agents
 
+c("season", "game_id", "game_date", "session", 
+  "datetime", "event_index", "game_period", "game_seconds",
+  "event_type", "event_description", "event_detail",
+  "event_team", "event_player_1", "event_player_2", "event_player_3", "event_player_4",
+  "event_length", "coords_x", "coords_y", "players_substituted",
+  "home_on_1", "home_on_2", "home_on_3", "home_on_4", "home_on_5", "home_on_6", 
+  "away_on_1", "away_on_2", "away_on_3", "away_on_4", "away_on_5", "away_on_6", 
+  "home_goalie", "away_goalie",
+  "home_team", "away_team", "game_venue",
+  "home_skaters", "away_skaters", "home_score", "away_score",
+  "game_score_state", "game_strength_state",
+  "highlight_code", "highlight_title", "highlight_blurb", "highlight_description", "highlight_image_url"
+  ) ->
+  ds.pbp_colnames
+
 
 ## Meta Functions
 # Get PBP
@@ -455,6 +470,25 @@ ds.parse_date <- function(x) {
   
 }
 
+# Parse Roster
+ds.parse_roster <- function(x) {
+  
+  ## Description
+  # parse_roster() parses a single player from the PBP JSON object and returns a data frame
+  
+  data.frame(player_id = x$id,
+             player_name_first = x$firstName,
+             player_name_last = x$lastName,
+             player_name_full = x$fullName,
+             player_jerseynum = x$primaryNumber,
+             player_position = x$primaryPosition$code
+             ) ->
+    roster_df
+  
+  return(roster_df)
+  
+}
+
 # Seconds from MS
 ds.seconds_from_ms <- function(ms) {
   
@@ -543,6 +577,12 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                     "rbind", 
                     cores = 1
                     )
+  
+  roster_df <- dcapply(pbp$gameData$players,
+                       ds.parse_roster,
+                       "rbind",
+                       cores = 1
+                       )
 
   shift_df <- dcapply(shifts$data,
                       ds.parse_shift,
@@ -644,6 +684,7 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
   
   game_list <- list(pbp_df,
                     shift_df,
+                    roster_df,
                     full_highlight,
                     full_media
                     )
@@ -759,8 +800,9 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
   
   pbp <- unpacked[[1]]
   shifts <- unpacked[[2]]
-  highlights <- unpacked[[3]]
-  media <- unpacked[[4]]
+  roster <- unpacked[[3]]
+  highlights <- unpacked[[4]]
+  media <- unpacked[[5]]
   
   pbp$game_seconds = 1200*(nabs(pbp$game_period) - 1) + ds.seconds_from_ms(pbp$period_time_elapsed)
   
@@ -776,6 +818,7 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                session,
                home_team,
                away_team,
+               game_venue,
                team_id,
                shift_number,
                start_seconds
@@ -795,6 +838,7 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                 session,
                 home_team,
                 away_team,
+                game_venue,
                 team_id,
                 shift_number,
                 end_seconds
@@ -890,6 +934,28 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
     data.frame() ->
     away_on_df
   
+  home_on_df %>%
+    mutate_each(funs(na_as_zero)) %>%
+    transmute(home_goalie = nabs(home_on_1)*(home_on_1 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(home_on_2)*(home_on_2 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(home_on_3)*(home_on_3 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(home_on_4)*(home_on_4 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(home_on_5)*(home_on_5 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(home_on_6)*(home_on_6 %in% roster$player_id[which(roster$player_position == "G")])
+                            ) ->
+    home_goalie
+  
+  away_on_df %>%
+    mutate_each(funs(na_as_zero)) %>%
+    transmute(away_goalie = nabs(away_on_1)*(away_on_1 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(away_on_2)*(away_on_2 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(away_on_3)*(away_on_3 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(away_on_4)*(away_on_4 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(away_on_5)*(away_on_5 %in% roster$player_id[which(roster$player_position == "G")]) +
+                            nabs(away_on_6)*(away_on_6 %in% roster$player_id[which(roster$player_position == "G")])
+                            ) ->
+    away_goalie
+  
   new_pbp %>%
     arrange(game_id,
             event_index
@@ -900,12 +966,14 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
            home_on_4 = NA,
            home_on_5 = NA,
            home_on_6 = NA,
+           home_goalie = NA,
            away_on_1 = NA,
            away_on_2 = NA,
            away_on_3 = NA,
            away_on_4 = NA,
            away_on_5 = NA,
-           away_on_6 = NA
+           away_on_6 = NA,
+           away_goalie = NA
            ) ->
     full_pbp
   
@@ -915,6 +983,7 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
   full_pbp$home_on_4[home_on_df$row] <- home_on_df$home_on_4
   full_pbp$home_on_5[home_on_df$row] <- home_on_df$home_on_5
   full_pbp$home_on_6[home_on_df$row] <- home_on_df$home_on_6
+  full_pbp$home_goalie[home_on_df$row] <- home_goalie$home_goalie
   
   full_pbp$away_on_1[away_on_df$row] <- away_on_df$away_on_1
   full_pbp$away_on_2[away_on_df$row] <- away_on_df$away_on_2
@@ -922,6 +991,51 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
   full_pbp$away_on_4[away_on_df$row] <- away_on_df$away_on_4
   full_pbp$away_on_5[away_on_df$row] <- away_on_df$away_on_5
   full_pbp$away_on_6[away_on_df$row] <- away_on_df$away_on_6
+  full_pbp$away_goalie[away_on_df$row] <- away_goalie$away_goalie
+  
+  full_pbp %>%
+    group_by(game_id) %>%
+    arrange(event_index) %>%
+    mutate(home_skaters = 6 - 1*(is.na(home_on_1) == TRUE) -
+                              1*(is.na(home_on_2) == TRUE) -
+                              1*(is.na(home_on_3) == TRUE) -
+                              1*(is.na(home_on_4) == TRUE) -
+                              1*(is.na(home_on_5) == TRUE) -
+                              1*(is.na(home_on_6) == TRUE) -
+                              1*(!is.na(home_goalie)),
+           away_skaters = 6 - 1*(is.na(away_on_1) == TRUE) -
+                              1*(is.na(away_on_2) == TRUE) -
+                              1*(is.na(away_on_3) == TRUE) -
+                              1*(is.na(away_on_4) == TRUE) -
+                              1*(is.na(away_on_5) == TRUE) -
+                              1*(is.na(away_on_6) == TRUE) -
+                              1*(!is.na(away_goalie)),
+           home_score = cumsum(event_type == "GOAL" & event_team == home_team),
+           away_score = cumsum(event_type == "GOAL" & event_team == away_team),
+           event_length = nabs(lead(game_seconds, 1) - game_seconds)
+           ) %>%
+    ungroup() %>%
+    mutate(game_strength_state = paste(ifelse(is.na(home_goalie) == TRUE,
+                                              "E",
+                                              home_skaters
+                                              ),
+                                       ifelse(is.na(away_goalie) == TRUE,
+                                              "E",
+                                              away_skaters
+                                              ),
+                                       sep = "v"
+                                       ),
+           game_score_state = paste(home_score,
+                                    away_score,
+                                    sep = "v"
+                                    )
+           ) %>%
+    select(one_of(ds.pbp_colnames)) %>%
+    arrange(game_id,
+            event_index
+            ) %>%
+    data.frame() ->
+    full_pbp
   
   new_game_list <- list(full_pbp,
                         shifts,
@@ -930,5 +1044,7 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                         )
   
   return(new_game_list)
+  
+  ### NEXT STEPS: FIX EVENT TEAM REFERENCE
   
 }

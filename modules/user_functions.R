@@ -4,11 +4,11 @@
 
 ## Description
 # User Functions are meta functions and methods for more efficient code writing
-# Dependencies: dplyr
+# Dependencies: dplyr, doMC
 
 
 ## Dependencies
-require(dplyr)
+require(dplyr); require(doMC)
 
 
 ## General Functions
@@ -28,7 +28,7 @@ nabs <- function(x) {
 log_loss <- function(act, pred, allow_inf = FALSE) {
   
   ## Description
-  # Log_loss() returns the logarithmic loss obtained from a given prediction and known result
+  # log_loss() returns the logarithmic loss obtained from a given prediction and known result
   # The allow_inf parameter controls whether infinite loss is allowed (default is FALSE)
   # Setting allow_inf to FALSE will cause large but finite penalties at the extremes
   
@@ -131,5 +131,33 @@ dcapply <- function(x, fun, combine, cores, ...) {
   }
   
   return(combined)
+  
+}
+
+# NA as String
+na_as_string <- function(x) {
+  
+  ## Description
+  # na_as_string() returns a character vector with NA values replaced as "NA"
+  
+  x <- as.character(x)
+  
+  x[which(is.na(x) == TRUE)] <- "NA"
+  
+  return(x)
+  
+}
+
+# NA as String
+na_as_zero <- function(x) {
+  
+  ## Description
+  # na_as_zero() returns a numeric vector with NA values replaced as 0
+  
+  x <- nabs(x)
+  
+  x[which(is.na(x) == TRUE)] <- 0
+  
+  return(x)
   
 }
