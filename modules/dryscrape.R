@@ -1,5 +1,5 @@
 ### DRYSCRAPE ###
-# Last edit: Manny (2017-03-29)
+# Last edit: Manny (2017-03-30)
 
 
 ## Description
@@ -36,7 +36,7 @@ c("season", "game_id", "game_date", "session",
   "home_on_1", "home_on_2", "home_on_3", "home_on_4", "home_on_5", "home_on_6", 
   "away_on_1", "away_on_2", "away_on_3", "away_on_4", "away_on_5", "away_on_6", 
   "home_goalie", "away_goalie",
-  "home_team", "away_team", "game_venue",
+  "home_team", "away_team", "home_rinkside", "away_rinkside", "game_venue",
   "home_skaters", "away_skaters", "home_score", "away_score",
   "game_score_state", "game_strength_state",
   "highlight_code", "highlight_title", "highlight_blurb", "highlight_description", "highlight_image_url"
@@ -489,6 +489,22 @@ ds.parse_roster <- function(x) {
   
 }
 
+# Parse Line Score
+ds.parse_linescore <- function(x) {
+  
+  ## Description
+  # parse_linescore() parses a single period from the PBP >> LineScore JSON object and returns a data frame
+  
+  data.frame(game_period = nabs(x$num),
+             home_side = na_if_null(toupper(substr(as.character(x$home$rinkSide), 0, 1))),
+             away_side = na_if_null(toupper(substr(as.character(x$away$rinkSide), 0, 1)))
+             ) ->
+    linescore_df
+  
+  return(linescore_df)
+  
+}
+
 # Seconds from MS
 ds.seconds_from_ms <- function(ms) {
   
@@ -602,6 +618,12 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                       cores = 1
                       )
   
+  rinkside_df <- dcapply(pbp$liveData$linescore$periods,
+                         ds.parse_linescore,
+                         "rbind",
+                         cores = 1
+                         )
+  
   game_date_ <- as.Date(pbp$gameData$datetime$dateTime)
   session_ <- as.character(pbp$gameData$game$type)
   game_id_unique <- nabs(pbp$gameData$game$pk)
@@ -616,7 +638,9 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
            session = session_,
            home_team = home_team_,
            away_team = away_team_,
-           game_venue = game_venue_
+           game_venue = game_venue_,
+           home_rinkside = rinkside_df$home_side[match(game_period, rinkside_df$game_period)],
+           away_rinkside = rinkside_df$away_side[match(game_period, rinkside_df$game_period)]
            ) %>%
     data.frame() ->
     pbp_df
@@ -1044,7 +1068,5 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                         )
   
   return(new_game_list)
-  
-  ### NEXT STEPS: FIX EVENT TEAM REFERENCE
   
 }
