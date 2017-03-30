@@ -359,7 +359,7 @@ ds.parse_shift <- function(x) {
              game_id = nabs(x$gameId),
              season = NA,
              session = NA,
-             shift_number = nabs(x$eventNumber),
+             shift_number = na_if_null(nabs(x$eventNumber)),
              shift_period = nabs(x$period),
              shift_start = as.character(x$startTime),
              shift_end = as.character(x$endTime),
@@ -475,6 +475,37 @@ ds.seconds_from_ms <- function(ms) {
     
 }
 
+# Is On
+ds.is_on <- function(player_id, pbp, venue) {
+  
+  ## Description
+  # is_on() returns a numeric vector indicating 1 if a given player is on ice during the event corresponding to the \
+  # row index in the given PBP pbject
+  
+  if(venue == "Home") {
+    
+    data.frame(cumsum(1*(grepl(player_id, pbp$players_substituted) == TRUE & pbp$event_type == "ON" & pbp$event_team == pbp$home_team) - 
+                      1*(grepl(player_id, pbp$players_substituted) == TRUE & pbp$event_type == "OFF" & pbp$event_team == pbp$home_team)
+                      )
+              ) ->
+      is_on
+    
+  } else if(venue == "Away") {
+    
+    data.frame(cumsum(1*(grepl(player_id, pbp$players_substituted) == TRUE & pbp$event_type == "ON" & pbp$event_team == pbp$away_team) - 
+                      1*(grepl(player_id, pbp$players_substituted) == TRUE & pbp$event_type == "OFF" & pbp$event_team == pbp$away_team)
+                      )
+              ) ->
+      is_on
+    
+  }
+  
+  colnames(is_on) <- player_id
+  
+  return(is_on)
+  
+}
+
 
 ## General Functions
 # Who
@@ -535,12 +566,16 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
   session_ <- as.character(pbp$gameData$game$type)
   game_id_unique <- nabs(pbp$gameData$game$pk)
   game_venue_ <- as.character(pbp$gameData$venue$name)
+  home_team_ <- nabs(pbp$gameData$teams$home$id)
+  away_team_ <- nabs(pbp$gameData$teams$away$id)
   
   pbp_df %>%
     mutate(game_date = game_date_,
            game_id = game_id_unique,
            season = as.character(season_),
            session = session_,
+           home_team = home_team_,
+           away_team = away_team_,
            game_venue = game_venue_
            ) %>%
     data.frame() ->
@@ -550,6 +585,8 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
     mutate(game_date = game_date_,
            season = as.character(season_),
            session = session_,
+           home_team = home_team_,
+           away_team = away_team_,
            game_venue = game_venue_
            ) %>%
     data.frame() ->
@@ -560,6 +597,8 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
            game_id = game_id_unique,
            season = as.character(season_),
            session = session_,
+           home_team = home_team_,
+           away_team = away_team_,
            game_venue = game_venue_
            ) %>%
     data.frame() ->
@@ -593,6 +632,8 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                            game_id = game_id_unique,
                            season = as.character(season_),
                            session = session_,
+                           home_team = home_team_,
+                           away_team = away_team_,
                            preview_headline = na_if_null(media_preview_headline),
                            preview_subhead = na_if_null(media_preview_subhead),
                            preview_description = na_if_null(media_preview_description),
@@ -733,6 +774,8 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                game_date,
                season,
                session,
+               home_team,
+               away_team,
                team_id,
                shift_number,
                start_seconds
@@ -750,6 +793,8 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                 game_date,
                 season,
                 session,
+                home_team,
+                away_team,
                 team_id,
                 shift_number,
                 end_seconds
@@ -784,17 +829,106 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                       6*(event_type == "ON") +
                       7*(event_type == "FACEOFF")
            ) %>% 
-    arrange(game_id,
-            game_period,
+    group_by(game_id) %>%
+    arrange(game_period,
             game_seconds,
             priority
             ) %>%
-    mutate(event_index = cumsum(!is.na(game_id))) ->
+    mutate(event_index = cumsum(!is.na(game_id))) %>%
+    data.frame() ->
     new_pbp
   
-  ### TO ADD: HOME/AWAY TEAMS, HOME/AWAY ON ICE
-  ### RETURN ORDERED + STRUCTURED DATA FRAME
+  home_on_mat <- dcapply(as.list(unique(shifts$player_id)),
+                         ds.is_on,
+                         "cbind",
+                         cores = 1,
+                         pbp = arrange(new_pbp,
+                                       game_id,
+                                       event_index
+                                       ),
+                         venue = "Home"
+                         )
+  
+  away_on_mat <- dcapply(as.list(unique(shifts$player_id)),
+                         ds.is_on,
+                         "cbind",
+                         cores = 1,
+                         pbp = arrange(new_pbp,
+                                       game_id,
+                                       event_index
+                                       ),
+                         venue = "Away"
+                         )
+  
+  which(home_on_mat == 1, 
+        arr.ind = TRUE
+        ) %>%
+    data.frame() %>%
+    group_by(row) %>%
+    summarise(home_on_1 = colnames(home_on_mat)[unique(col)[1]],
+              home_on_2 = colnames(home_on_mat)[unique(col)[2]],
+              home_on_3 = colnames(home_on_mat)[unique(col)[3]],
+              home_on_4 = colnames(home_on_mat)[unique(col)[4]],
+              home_on_5 = colnames(home_on_mat)[unique(col)[5]],
+              home_on_6 = colnames(home_on_mat)[unique(col)[6]]
+              ) %>%
+    data.frame() ->
+    home_on_df
+  
+  which(away_on_mat == 1, 
+        arr.ind = TRUE
+        ) %>%
+    data.frame() %>%
+    group_by(row) %>%
+    summarise(away_on_1 = colnames(away_on_mat)[unique(col)[1]],
+              away_on_2 = colnames(away_on_mat)[unique(col)[2]],
+              away_on_3 = colnames(away_on_mat)[unique(col)[3]],
+              away_on_4 = colnames(away_on_mat)[unique(col)[4]],
+              away_on_5 = colnames(away_on_mat)[unique(col)[5]],
+              away_on_6 = colnames(away_on_mat)[unique(col)[6]]
+              ) %>%
+    data.frame() ->
+    away_on_df
+  
+  new_pbp %>%
+    arrange(game_id,
+            event_index
+            ) %>%
+    mutate(home_on_1 = NA,
+           home_on_2 = NA,
+           home_on_3 = NA,
+           home_on_4 = NA,
+           home_on_5 = NA,
+           home_on_6 = NA,
+           away_on_1 = NA,
+           away_on_2 = NA,
+           away_on_3 = NA,
+           away_on_4 = NA,
+           away_on_5 = NA,
+           away_on_6 = NA
+           ) ->
+    full_pbp
+  
+  full_pbp$home_on_1[home_on_df$row] <- home_on_df$home_on_1
+  full_pbp$home_on_2[home_on_df$row] <- home_on_df$home_on_2
+  full_pbp$home_on_3[home_on_df$row] <- home_on_df$home_on_3
+  full_pbp$home_on_4[home_on_df$row] <- home_on_df$home_on_4
+  full_pbp$home_on_5[home_on_df$row] <- home_on_df$home_on_5
+  full_pbp$home_on_6[home_on_df$row] <- home_on_df$home_on_6
+  
+  full_pbp$away_on_1[away_on_df$row] <- away_on_df$away_on_1
+  full_pbp$away_on_2[away_on_df$row] <- away_on_df$away_on_2
+  full_pbp$away_on_3[away_on_df$row] <- away_on_df$away_on_3
+  full_pbp$away_on_4[away_on_df$row] <- away_on_df$away_on_4
+  full_pbp$away_on_5[away_on_df$row] <- away_on_df$away_on_5
+  full_pbp$away_on_6[away_on_df$row] <- away_on_df$away_on_6
+  
+  new_game_list <- list(full_pbp,
+                        shifts,
+                        highlights,
+                        media
+                        )
+  
+  return(new_game_list)
   
 }
-
-
