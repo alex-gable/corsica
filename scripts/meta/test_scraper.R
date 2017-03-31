@@ -1,5 +1,5 @@
 ### TEST SCRAPER ###
-# Last edit: Manny (2017-03-30)
+# Last edit: Manny (2017-03-31)
 
 
 ## Dependencies
@@ -11,7 +11,7 @@ load("~/Documents/github/corsica/modules/stats.RData")
 
 ## Test Scraper
 # Compile games
-game_list <- ds.compile_games(games = 20001:20012,
+game_list <- ds.compile_games(games = 20220:20235,
                               season = "20162017",
                               try_tolerance = 3,
                               agents = ds.user_agents
@@ -25,10 +25,12 @@ pbp <- st.pbp_enhance(pbp)
 # Compute team stats
 bind_rows(
   pbp %>%
+    filter(game_strength_state != "EvE") %>%
     group_by(season, session, game_id, game_date, home_team, game_strength_state) %>%
     st.sum_team("Home"),
   
   pbp %>%
+    filter(game_strength_state != "EvE") %>%
     group_by(season, session, game_id, game_date, away_team, game_strength_state) %>%
     st.sum_team("Away")
 ) %>%
