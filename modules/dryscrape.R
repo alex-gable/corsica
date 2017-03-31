@@ -340,15 +340,15 @@ ds.parse_event <- function(x) {
              game_id = NA,
              season = NA,
              session = NA,
-             event_id = nabs(x$about$eventIdx),
-             event_code = as.character(x$result$eventCode),
-             event_type = as.character(x$result$eventTypeId),
-             event_description = as.character(x$result$description),
+             event_id = na_if_null(nabs(x$about$eventIdx)),
+             event_code = na_if_null(as.character(x$result$eventCode)),
+             event_type = na_if_null(as.character(x$result$eventTypeId)),
+             event_description = na_if_null(as.character(x$result$description)),
              event_detail = na_if_null(as.character(x$result$secondaryType)),
-             datetime = parse_date_time(x$about$dateTime, "y-m-d.H:M:S."),
-             game_period = nabs(x$about$period),
-             period_time_elapsed = as.character(x$about$periodTime),
-             period_time_remaining = as.character(x$about$periodTimeRemaining),
+             datetime = na_if_null(as.character(parse_date_time(x$about$dateTime, "y-m-d.H:M:S."))),
+             game_period = na_if_null(nabs(x$about$period)),
+             period_time_elapsed = na_if_null(as.character(x$about$periodTime)),
+             period_time_remaining = na_if_null(as.character(x$about$periodTimeRemaining)),
              event_team = na_if_null(as.character(x$team$id)),
              event_player_1 = na_if_null(player_ids[1]),
              event_player_2 = na_if_null(player_ids[2]),
@@ -356,7 +356,7 @@ ds.parse_event <- function(x) {
              event_player_4 = na_if_null(player_ids[4]),
              coords_x = na_if_null(x$coordinates$x),
              coords_y = na_if_null(x$coordinates$y),
-             highlight_id = nabs(x$about$eventId)
+             highlight_id = na_if_null(nabs(x$about$eventId))
              ) ->
     event_df
   
@@ -371,16 +371,16 @@ ds.parse_shift <- function(x) {
   # parse_shift() parses a single shift from the Shifts JSON object and returns a data frame
   
   data.frame(game_date = NA,
-             game_id = nabs(x$gameId),
+             game_id = na_if_null(nabs(x$gameId)),
              season = NA,
              session = NA,
              shift_number = na_if_null(nabs(x$eventNumber)),
-             shift_period = nabs(x$period),
-             shift_start = as.character(x$startTime),
-             shift_end = as.character(x$endTime),
+             shift_period = na_if_null(nabs(x$period)),
+             shift_start = na_if_null(as.character(x$startTime)),
+             shift_end = na_if_null(as.character(x$endTime)),
              shift_duration = na_if_null(as.character(x$duration)),
-             team_id = as.character(x$teamId),
-             player_id = as.character(x$playerId)
+             team_id = na_if_null(as.character(x$teamId)),
+             player_id = na_if_null(as.character(x$playerId))
              ) ->
     shift_df
   
@@ -398,13 +398,13 @@ ds.parse_highlight <- function(x) {
              game_id = NA,
              season = NA,
              session = NA,
-             event_id = x$id,
-             highlight_id = x$feeds[[1]]$neulionId,
+             event_id = na_if_null(x$id),
+             highlight_id = na_if_null(x$feeds[[1]]$neulionId),
              event_team_1 = na_if_null(x$t1),
              event_team_2 = na_if_null(x$t2),
-             event_period = x$p,
-             event_seconds = x$sip,
-             event_type = x$type
+             event_period = na_if_null(x$p),
+             event_seconds = na_if_null(x$sip),
+             event_type = na_if_null(x$type)
              ) ->
     highlight_df
   
@@ -418,11 +418,11 @@ ds.parse_media <- function(x) {
   ## Description
   # parse_media() parses a single highlight from the Media JSON object and returns a data frame
   
-  data.frame(highlight_id = as.character(x$id),
-             highlight_title = as.character(x$title),
-             highlight_blurb = as.character(x$blurb),
-             highlight_description = as.character(x$description),
-             highlight_image_url = as.character(x$image$cuts$`1136x640`$src)
+  data.frame(highlight_id = na_if_null(as.character(x$id)),
+             highlight_title = na_if_null(as.character(x$title)),
+             highlight_blurb = na_if_null(as.character(x$blurb)),
+             highlight_description = na_if_null(as.character(x$description)),
+             highlight_image_url = na_if_null(as.character(x$image$cuts$`1136x640`$src))
              ) ->
     media_df
   
@@ -437,15 +437,15 @@ ds.parse_game <- function(x) {
   # parse_game() parses a single game from the Schedule >> Date JSON object and returns a data frame
   # parse_game() is an inner function for parse_date()
   
-  data.frame(game_id = nabs(x$gamePk),
-             game_date = as.Date(x$gameDate),
-             season = as.character(x$season),
-             session = as.character(x$gameType),
-             game_status = as.character(x$status$detailedState),
-             away_team_id = nabs(x$teams$away$team$id),
-             home_team_id = nabs(x$teams$home$team$id),
+  data.frame(game_id = na_if_null(nabs(x$gamePk)),
+             game_date = na_if_null(as.character(as.Date(x$gameDate))),
+             season = na_if_null(as.character(x$season)),
+             session = na_if_null(as.character(x$gameType)),
+             game_status = na_if_null(as.character(x$status$detailedState)),
+             away_team_id = na_if_null(nabs(x$teams$away$team$id)),
+             home_team_id = na_if_null(nabs(x$teams$home$team$id)),
              game_venue = na_if_null(as.character(x$venue$name)),
-             game_datetime = parse_date_time(x$gameDate, "y-m-d.H:M:S.")
+             game_datetime = na_if_null(as.character(parse_date_time(x$gameDate, "y-m-d.H:M:S.")))
              ) ->
     game_df
   
@@ -476,12 +476,12 @@ ds.parse_roster <- function(x) {
   ## Description
   # parse_roster() parses a single player from the PBP JSON object and returns a data frame
   
-  data.frame(player_id = x$id,
-             player_name_first = x$firstName,
-             player_name_last = x$lastName,
-             player_name_full = x$fullName,
-             player_jerseynum = x$primaryNumber,
-             player_position = x$primaryPosition$code
+  data.frame(player_id = na_if_null(x$id),
+             player_name_first = na_if_null(x$firstName),
+             player_name_last = na_if_null(x$lastName),
+             player_name_full = na_if_null(x$fullName),
+             player_jerseynum = na_if_null(x$primaryNumber),
+             player_position = na_if_null(x$primaryPosition$code)
              ) ->
     roster_df
   
@@ -495,7 +495,7 @@ ds.parse_linescore <- function(x) {
   ## Description
   # parse_linescore() parses a single period from the PBP >> LineScore JSON object and returns a data frame
   
-  data.frame(game_period = nabs(x$num),
+  data.frame(game_period = na_if_null(nabs(x$num)),
              home_side = na_if_null(toupper(substr(as.character(x$home$rinkSide), 0, 1))),
              away_side = na_if_null(toupper(substr(as.character(x$away$rinkSide), 0, 1)))
              ) ->
@@ -624,7 +624,7 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                          cores = 1
                          )
   
-  game_date_ <- as.Date(pbp$gameData$datetime$dateTime)
+  game_date_ <- as.character(as.Date(pbp$gameData$datetime$dateTime))
   session_ <- as.character(pbp$gameData$game$type)
   game_id_unique <- nabs(pbp$gameData$game$pk)
   game_venue_ <- as.character(pbp$gameData$venue$name)
@@ -728,9 +728,9 @@ ds.scrape_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla
   
   team <- ds.get_team_profile(team_id_, try_tolerance, agents)
   
-  data.frame(team_id = nabs(team$teams[[1]]$id),
-             team_name = team$teams[[1]]$name,
-             team_alias = team$teams[[1]]$abbreviation,
+  data.frame(team_id = na_if_null(nabs(team$teams[[1]]$id)),
+             team_name = na_if_null(team$teams[[1]]$name),
+             team_alias = na_if_null(team$teams[[1]]$abbreviation),
              team_venue = na_if_null(team$teams[[1]]$venue$name),
              team_location = na_if_null(team$teams[[1]]$locationName),
              team_city = na_if_null(team$teams[[1]]$venue$city),
@@ -738,8 +738,8 @@ ds.scrape_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla
              team_division_name = na_if_null(team$teams[[1]]$division$name),
              team_conference_id = na_if_null(nabs(team$teams[[1]]$conference$id)),
              team_conference_name = na_if_null(team$teams[[1]]$conference$name),
-             franchise_id = nabs(team$teams[[1]]$franchiseId),
-             is_active = as.logical(team$teams[[1]]$active)
+             franchise_id = na_if_null(nabs(team$teams[[1]]$franchiseId)),
+             is_active = na_if_null(as.logical(team$teams[[1]]$active))
              ) ->
     team_df
   
@@ -758,21 +758,21 @@ ds.scrape_player_profile <- function(player_id, try_tolerance = 3, agents = "Moz
   
   player <- ds.get_player_profile(player_id_, try_tolerance, agents)
   
-  data.frame(player_id = nabs(player$people[[1]]$id),
-             player_name_first = as.character(player$people[[1]]$firstName),
-             player_name_last = as.character(player$people[[1]]$lastName),
-             player_name_full = as.character(player$people[[1]]$fullName),
+  data.frame(player_id = na_if_null(nabs(player$people[[1]]$id)),
+             player_name_first = na_if_null(as.character(player$people[[1]]$firstName)),
+             player_name_last = na_if_null(as.character(player$people[[1]]$lastName)),
+             player_name_full = na_if_null(as.character(player$people[[1]]$fullName)),
              player_jerseynum = na_if_null(nabs(player$people[[1]]$primaryNumber)),
              player_position = na_if_null(as.character(player$people[[1]]$primaryPosition$code)),
-             player_birth_date = na_if_null(as.Date(player$people[[1]]$birthDate)),
+             player_birth_date = na_if_null(as.character(as.Date(player$people[[1]]$birthDate))),
              player_birth_city = na_if_null(as.character(player$people[[1]]$birthCity)),
              player_birth_country = na_if_null(as.character(player$people[[1]]$birthCountry)),
              player_nationality = na_if_null(as.character(player$people[[1]]$nationality)),
              player_height = na_if_null(as.character(player$people[[1]]$height)),
              player_weight = na_if_null(nabs(player$people[[1]]$weight)),
              player_handedness = na_if_null(as.character(player$people[[1]]$shootsCatches)),
-             is_active = as.logical(player$people[[1]]$active),
-             is_rookie = as.logical(player$people[[1]]$rookie)
+             is_active = na_if_null(as.logical(player$people[[1]]$active)),
+             is_rookie = na_if_null(as.logical(player$people[[1]]$rookie))
              ) ->
     player_df
   

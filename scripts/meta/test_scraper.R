@@ -1,6 +1,7 @@
 ### TEST SCRAPER ###
 # Last edit: Manny (2017-03-30)
 
+
 ## Dependencies
 require(RCurl); require(rjson); require(dplyr); require(lubridate); require(doMC); require(Kmisc)
 load("~/Documents/github/corsica/modules/user_functions.RData")
