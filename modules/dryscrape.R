@@ -664,7 +664,7 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
     
   }
   
-  if(!is.null(highlight_df)) {
+  if(!is.null(highlight_df) & !is.null(media_df)) {
   
     highlight_df %>%
       mutate(game_date = game_date_,
