@@ -1,5 +1,5 @@
 ### STATS ###
-# Last edit: Manny (2017-03-30)
+# Last edit: Manny (2017-03-31)
 
 
 ## Description
@@ -242,7 +242,6 @@ st.sum_team <- function(x, venue) {
                 HF = sum(event_type == "HIT" & event_team == team),
                 HA = sum(event_type == "HIT" & event_team == home_team)
                 ) %>%
-      filter(TOI > 0) %>%
       data.frame() %>%
       return()
     

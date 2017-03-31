@@ -1,5 +1,5 @@
 ### DRYSCRAPE ###
-# Last edit: Manny (2017-03-30)
+# Last edit: Manny (2017-03-31)
 
 
 ## Description
@@ -631,48 +631,64 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
   home_team_ <- nabs(pbp$gameData$teams$home$id)
   away_team_ <- nabs(pbp$gameData$teams$away$id)
   
-  pbp_df %>%
-    mutate(game_date = game_date_,
-           game_id = game_id_unique,
-           season = as.character(season_),
-           session = session_,
-           home_team = home_team_,
-           away_team = away_team_,
-           game_venue = game_venue_,
-           home_rinkside = rinkside_df$home_side[match(game_period, rinkside_df$game_period)],
-           away_rinkside = rinkside_df$away_side[match(game_period, rinkside_df$game_period)]
-           ) %>%
-    data.frame() ->
-    pbp_df
+  if(!is.null(pbp_df)) {
+    
+    pbp_df %>%
+      mutate(game_date = game_date_,
+             game_id = game_id_unique,
+             season = as.character(season_),
+             session = session_,
+             home_team = home_team_,
+             away_team = away_team_,
+             game_venue = game_venue_,
+             home_rinkside = rinkside_df$home_side[match(game_period, rinkside_df$game_period)],
+             away_rinkside = rinkside_df$away_side[match(game_period, rinkside_df$game_period)]
+             ) %>%
+      data.frame() ->
+      pbp_df
   
-  shift_df %>%
-    mutate(game_date = game_date_,
-           season = as.character(season_),
-           session = session_,
-           home_team = home_team_,
-           away_team = away_team_,
-           game_venue = game_venue_
-           ) %>%
-    data.frame() ->
-    shift_df
+  }
   
-  highlight_df %>%
-    mutate(game_date = game_date_,
-           game_id = game_id_unique,
-           season = as.character(season_),
-           session = session_,
-           home_team = home_team_,
-           away_team = away_team_,
-           game_venue = game_venue_
-           ) %>%
-    data.frame() ->
-    highlight_df
+  if(!is.null(shift_df)) {
   
-  full_highlight <- merge(highlight_df,
-                          media_df,
-                          by.x = "highlight_id",
-                          by.y =  "highlight_id"
-                          )
+    shift_df %>%
+      mutate(game_date = game_date_,
+             season = as.character(season_),
+             session = session_,
+             home_team = home_team_,
+             away_team = away_team_,
+             game_venue = game_venue_
+             ) %>%
+      data.frame() ->
+      shift_df
+    
+  }
+  
+  if(!is.null(highlight_df)) {
+  
+    highlight_df %>%
+      mutate(game_date = game_date_,
+             game_id = game_id_unique,
+             season = as.character(season_),
+             session = session_,
+             home_team = home_team_,
+             away_team = away_team_,
+             game_venue = game_venue_
+             ) %>%
+      data.frame() ->
+      highlight_df
+    
+    full_highlight <- merge(highlight_df,
+                            media_df,
+                            by.x = "highlight_id",
+                            by.y =  "highlight_id"
+                            )
+  
+  } else {
+    
+    full_highlight <- NULL
+    
+  }
     
   media_preview_headline <- media$editorial$preview$items[[1]]$headline
   media_preview_subhead <- media$editorial$preview$items[[1]]$subhead
@@ -878,7 +894,10 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
   merge(pbp,
         highlights %>%
           rename(highlight_code = highlight_id) %>%
-          select(game_id, event_id, highlight_code, highlight_title:highlight_image_url),
+          select(game_id, event_id, highlight_code, highlight_title:highlight_image_url) %>%
+          group_by(event_id) %>%
+          slice(1) %>%
+          data.frame(),
         by.x = c("game_id", "highlight_id"),
         by.y = c("game_id", "event_id"),
         all.x = TRUE
