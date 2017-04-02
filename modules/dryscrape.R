@@ -79,7 +79,9 @@ ds.get_pbp <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -118,7 +120,9 @@ ds.get_shifts <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -158,7 +162,9 @@ ds.get_media <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -202,7 +208,9 @@ ds.get_highlights <- function(season, game_id, try_tolerance = 3, agents = "Mozi
   
   clean_text <- gsub("^.+?\\(\\{", "\\{", raw_text)
   
-  raw_json <- fromJSON(clean_text)
+  raw_json <- try(fromJSON(clean_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -239,7 +247,9 @@ ds.get_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla/5.
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -276,7 +286,9 @@ ds.get_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozill
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -315,7 +327,9 @@ ds.get_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0
     
   }
   
-  raw_json <- fromJSON(raw_text)
+  raw_json <- try(fromJSON(raw_text))
+  
+  if(class(raw_json) == "try-error") {raw_json <- NULL}
   
   return(raw_json)
   
@@ -690,9 +704,19 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
     
   }
     
-  media_preview_headline <- media$editorial$preview$items[[1]]$headline
-  media_preview_subhead <- media$editorial$preview$items[[1]]$subhead
-  media_preview_description <- media$editorial$preview$items[[1]]$seoDescription
+  if(length(media$editorial$preview$items) > 0) {
+  
+    media_preview_headline <- media$editorial$preview$items[[1]]$headline
+    media_preview_subhead <- media$editorial$preview$items[[1]]$subhead
+    media_preview_description <- media$editorial$preview$items[[1]]$seoDescription
+    
+  } else {
+    
+    media_preview_headline <- NULL
+    media_preview_subhead <- NULL
+    media_preview_description <- NULL
+    
+  }
   
   if(length(media$editorial$recap$items) > 0) {
     
@@ -891,19 +915,35 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
        data.frame()
   ) -> shift_summary
   
-  merge(pbp,
-        highlights %>%
-          rename(highlight_code = highlight_id) %>%
-          select(game_id, event_id, highlight_code, highlight_title:highlight_image_url) %>%
-          group_by(event_id) %>%
-          slice(1) %>%
-          data.frame(),
-        by.x = c("game_id", "highlight_id"),
-        by.y = c("game_id", "event_id"),
-        all.x = TRUE
-        ) %>%
-    data.frame() ->
-    new_pbp
+  if(!is.null(highlights)) {
+    
+    merge(pbp,
+          highlights %>%
+            rename(highlight_code = highlight_id) %>%
+            select(game_id, event_id, highlight_code, highlight_title:highlight_image_url) %>%
+            group_by(event_id) %>%
+            slice(1) %>%
+            data.frame(),
+          by.x = c("game_id", "highlight_id"),
+          by.y = c("game_id", "event_id"),
+          all.x = TRUE
+          ) %>%
+      data.frame() ->
+      new_pbp
+    
+  } else {
+    
+    pbp %>%
+      mutate(highlight_code = NA,
+             highlight_title = NA,
+             highlight_blurb = NA,
+             highlight_description = NA,
+             highlight_image_url = NA
+             ) %>%
+      data.frame() ->
+      new_pbp
+    
+  }
   
   bind_rows(new_pbp,
             shift_summary
