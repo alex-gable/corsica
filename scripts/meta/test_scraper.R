@@ -1,5 +1,5 @@
 ### TEST SCRAPER ###
-# Last edit: Manny (2017-03-31)
+# Last edit: Manny (2017-04-01)
 
 
 ## Dependencies
@@ -11,8 +11,8 @@ load("~/Documents/github/corsica/modules/stats.RData")
 
 ## Test Scraper
 # Compile games
-game_list <- ds.compile_games(games = 20220:20235,
-                              season = "20162017",
+game_list <- ds.compile_games(games = 20375:20375,
+                              season = "20142015",
                               try_tolerance = 3,
                               agents = ds.user_agents
                               )
@@ -25,17 +25,33 @@ pbp <- st.pbp_enhance(pbp)
 # Compute team stats
 bind_rows(
   pbp %>%
-    filter(game_strength_state != "EvE") %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
     group_by(season, session, game_id, game_date, home_team, game_strength_state) %>%
     st.sum_team("Home"),
   
   pbp %>%
-    filter(game_strength_state != "EvE") %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
     group_by(season, session, game_id, game_date, away_team, game_strength_state) %>%
     st.sum_team("Away")
 ) %>%
   data.frame() ->
-  team_stats
+  team_stats_full
+
+team_stats_full %>%
+  group_by(team) %>%
+  summarise(GP = length(unique(game_id)),
+            TOI = sum(TOI),
+            GF = sum(GF),
+            GA = sum(GA),
+            SF = sum(SF),
+            SA = sum(SA),
+            PENT2 = sum(PENT2),
+            PENT5 = sum(PENT5),
+            FOW = sum(FOW),
+            FOL = sum(FOL)
+            ) %>%
+  data.frame() ->
+  team_stats_all
 
 # Compute skater stats
 
