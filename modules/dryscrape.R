@@ -638,12 +638,12 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                          cores = 1
                          )
   
-  game_date_ <- as.character(as.Date(pbp$gameData$datetime$dateTime))
-  session_ <- as.character(pbp$gameData$game$type)
-  game_id_unique <- nabs(pbp$gameData$game$pk)
-  game_venue_ <- as.character(pbp$gameData$venue$name)
-  home_team_ <- nabs(pbp$gameData$teams$home$id)
-  away_team_ <- nabs(pbp$gameData$teams$away$id)
+  game_date_ <- as.character(as.Date(na_if_null(pbp$gameData$datetime$dateTime)))
+  session_ <- na_if_null(as.character(pbp$gameData$game$type))
+  game_id_unique <- na_if_null(nabs(pbp$gameData$game$pk))
+  game_venue_ <- na_if_null(as.character(pbp$gameData$venue$name))
+  home_team_ <- na_if_null(nabs(pbp$gameData$teams$home$id))
+  away_team_ <- na_if_null(nabs(pbp$gameData$teams$away$id))
   
   if(!is.null(pbp_df)) {
     
