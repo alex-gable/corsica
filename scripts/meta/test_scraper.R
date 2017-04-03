@@ -38,9 +38,9 @@ bind_rows(
   team_stats_full
 
 team_stats_full %>%
-  group_by(team) %>%
+  group_by(team, season, session) %>%
   summarise(GP = length(unique(game_id)),
-            TOI = sum(TOI),
+            TOI = sum(na.omit(TOI)),
             GF = sum(GF),
             GA = sum(GA),
             SF = sum(SF),
