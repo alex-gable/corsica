@@ -208,7 +208,7 @@ ds.get_highlights <- function(season, game_id, try_tolerance = 3, agents = "Mozi
   
   clean_text <- gsub("^.+?\\(\\{", "\\{", raw_text)
   
-  raw_json <- try(fromJSON(clean_text))
+  raw_json <- try(fromJSON(clean_text), silent = TRUE)
   
   if(class(raw_json) == "try-error") {raw_json <- NULL}
   
