@@ -1,5 +1,5 @@
 ### COMPILE GAMES ###
-# Last edit: Manny (2017-04-02)
+# Last edit: Manny (2017-04-03)
 
 
 ## Dependencies
@@ -11,8 +11,8 @@ load("~/Documents/github/corsica/modules/stats.RData")
 
 ## Compile games
 # Scrape
-game_list <- ds.compile_games(games = 20001:20200,
-                              season = "20112012",
+game_list <- ds.compile_games(games = 20001:20020,
+                              season = "20092010",
                               try_tolerance = 5,
                               agents = ds.user_agents
                               )

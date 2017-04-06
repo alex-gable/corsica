@@ -54,7 +54,102 @@ team_stats_full %>%
   team_stats_all
 
 # Compute skater stats
+bind_rows(
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_1, game_strength_state) %>%
+    rename(player = home_on_1) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_2, game_strength_state) %>%
+    rename(player = home_on_2) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_3, game_strength_state) %>%
+    rename(player = home_on_3) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_4, game_strength_state) %>%
+    rename(player = home_on_4) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_5, game_strength_state) %>%
+    rename(player = home_on_5) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, home_on_6, game_strength_state) %>%
+    rename(player = home_on_6) %>%
+    st.sum_skater("Home"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_1, game_strength_state) %>%
+    rename(player = away_on_1) %>%
+    st.sum_skater("Away"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_2, game_strength_state) %>%
+    rename(player = away_on_2) %>%
+    st.sum_skater("Away"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_3, game_strength_state) %>%
+    rename(player = away_on_3) %>%
+    st.sum_skater("Away"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_4, game_strength_state) %>%
+    rename(player = away_on_4) %>%
+    st.sum_skater("Away"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_5, game_strength_state) %>%
+    rename(player = away_on_5) %>%
+    st.sum_skater("Away"),
+  
+  pbp %>%
+    filter(!{game_period > 4 & session == "R"}) %>%
+    group_by(season, session, game_id, game_date, away_on_6, game_strength_state) %>%
+    rename(player = away_on_6) %>%
+    st.sum_skater("Away")
+) %>%
+  data.frame() ->
+  skater_stats_full
 
+skater_stats_full %>%
+  group_by(player, season, session) %>%
+  summarise(GP = length(unique(game_id)),
+            TOI = sum(na.omit(TOI)),
+            GF = sum(GF),
+            GA = sum(GA),
+            CF = sum(CF),
+            CA = sum(CA),
+            iPENT2 = sum(iPENT2),
+            iPENT5 = sum(iPENT5),
+            iFOW = sum(iFOW),
+            iFOL = sum(iFOL),
+            G = sum(G),
+            A1 = sum(A1),
+            A2 = sum(A2),
+            iCF = sum(iCF),
+            iFF = sum(iFF)
+            ) %>%
+  data.frame() ->
+  skater_stats_all
 
 # Compute goalie stats
 

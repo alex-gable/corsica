@@ -197,7 +197,6 @@ st.sum_team <- function(x, venue) {
                 HF = sum(event_type == "HIT" & event_team == team),
                 HA = sum(event_type == "HIT" & event_team == away_team)
                 ) %>%
-      filter(TOI > 0) %>%
       data.frame() %>%
       return()
     
@@ -241,6 +240,143 @@ st.sum_team <- function(x, venue) {
                 TKA = sum(event_type == "TAKEAWAY" & event_team == team),
                 HF = sum(event_type == "HIT" & event_team == team),
                 HA = sum(event_type == "HIT" & event_team == home_team)
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  }
+  
+}
+
+# Summarize Skater Stats
+st.sum_skater <- function(x, venue) {
+  
+  ## Description
+  # sum_skater() summarizes all skater counting stats from a PBP data frame object
+  # x is expected to be a grouped data frame with home_on_x or away_on_x as a grouping variable \
+  # for venue = "home" and venue = "away" respectively
+  # A rename() argument must be passed before sum_skater() to convert home/away_on_x to player
+  
+  venue_ <- tolower(as.character(venue))
+  
+  if(venue_ == "home") {
+    
+    x %>%
+      summarise(venue = "Home",
+                GP = length(unique(game_id)),
+                TOI = sum(event_length)/60,
+                CF = sum({event_type %in% st.fenwick_events & event_team == home_team} |
+                         {event_type == "BLOCKED_SHOT" & event_team == away_team}
+                         ),
+                CA = sum({event_type %in% st.fenwick_events & event_team == away_team} |
+                         {event_type == "BLOCKED_SHOT" & event_team == home_team}
+                         ),
+                FF = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                SF = sum(event_type %in% st.shot_events & event_team == home_team),
+                SA = sum(event_type %in% st.shot_events & event_team == away_team),
+                GF = sum(event_type == "GOAL" & event_team == home_team),
+                GA = sum(event_type == "GOAL" & event_team == away_team),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != home_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == home_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                PENT2 = sum(1*(event_type == "PENALTY" & event_team == home_team) +
+                            1*(event_type == "PENALTY" & event_team == home_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENALTY" & event_team == home_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENALTY" & event_team == home_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENALTY" & event_team == away_team) +
+                            1*(event_type == "PENALTY" & event_team == away_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENALTY" & event_team == away_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENALTY" & event_team == away_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                
+                iCF = sum({event_type %in% st.fenwick_events & event_player_1 == player} |
+                          {event_type == "BLOCKED_SHOT" & event_player_2 == player}
+                          ),
+                iFF = sum(event_type %in% st.fenwick_events & event_player_1 == player),
+                iSF = sum(event_type %in% st.shot_events & event_player_1 == player),
+                G = sum(event_type == "GOAL" & event_player_1 == player),
+                A1 = sum(event_type == "GOAL" & event_player_2 == player),
+                A2 = sum(event_type == "GOAL" & event_player_3 == player),
+                iGVA = sum(event_type == "GIVEAWAY" & event_player_1 == player),
+                iTKA = sum(event_type == "TAKEAWAY" & event_player_1 == player),
+                iHF = sum(event_type == "HIT" & event_player_1 == player),
+                iHA = sum(event_type == "HIT" & event_player_2 == player),
+                iBLK = sum(event_type == "BLOCKED_SHOT" & event_player_1 == player),
+                iFOW = sum(event_type == "FACEOFF" & event_player_1 == player),
+                iFOL = sum(event_type == "FACEOFF" & event_player_2 == player),
+                iPENT2 = sum(1*(event_type == "PENALTY" & event_player_1 == player) +
+                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                             ),
+                iPENT5 = sum(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                iPEND2 = sum(1*(event_type == "PENALTY" & event_player_2 == player) +
+                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                             ),
+                iPEND5 = sum(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  } else if(venue_ == "away") {
+    
+    x %>%
+      summarise(venue = "Away",
+                GP = length(unique(game_id)),
+                TOI = sum(event_length)/60,
+                CF = sum({event_type %in% st.fenwick_events & event_team == away_team} |
+                         {event_type == "BLOCKED_SHOT" & event_team == home_team}
+                         ),
+                CA = sum({event_type %in% st.fenwick_events & event_team == home_team} |
+                         {event_type == "BLOCKED_SHOT" & event_team == away_team}
+                         ),
+                FF = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                SF = sum(event_type %in% st.shot_events & event_team == away_team),
+                SA = sum(event_type %in% st.shot_events & event_team == home_team),
+                GF = sum(event_type == "GOAL" & event_team == away_team),
+                GA = sum(event_type == "GOAL" & event_team == home_team),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != away_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == away_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                PENT2 = sum(1*(event_type == "PENALTY" & event_team == away_team) +
+                            1*(event_type == "PENALTY" & event_team == away_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENALTY" & event_team == away_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENALTY" & event_team == away_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENALTY" & event_team == home_team) +
+                            1*(event_type == "PENALTY" & event_team == home_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENALTY" & event_team == home_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENALTY" & event_team == home_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                
+                iCF = sum({event_type %in% st.fenwick_events & event_player_1 == player} |
+                          {event_type == "BLOCKED_SHOT" & event_player_2 == player}
+                          ),
+                iFF = sum(event_type %in% st.fenwick_events & event_player_1 == player),
+                iSF = sum(event_type %in% st.shot_events & event_player_1 == player),
+                G = sum(event_type == "GOAL" & event_player_1 == player),
+                A1 = sum(event_type == "GOAL" & event_player_2 == player),
+                A2 = sum(event_type == "GOAL" & event_player_3 == player),
+                iGVA = sum(event_type == "GIVEAWAY" & event_player_1 == player),
+                iTKA = sum(event_type == "TAKEAWAY" & event_player_1 == player),
+                iHF = sum(event_type == "HIT" & event_player_1 == player),
+                iHA = sum(event_type == "HIT" & event_player_2 == player),
+                iBLK = sum(event_type == "BLOCKED_SHOT" & event_player_1 == player),
+                iFOW = sum(event_type == "FACEOFF" & event_player_1 == player),
+                iFOL = sum(event_type == "FACEOFF" & event_player_2 == player),
+                iPENT2 = sum(1*(event_type == "PENALTY" & event_player_1 == player) +
+                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                             ),
+                iPENT5 = sum(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                iPEND2 = sum(1*(event_type == "PENALTY" & event_player_2 == player) +
+                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                             ),
+                iPEND5 = sum(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)
                 ) %>%
       data.frame() %>%
       return()
