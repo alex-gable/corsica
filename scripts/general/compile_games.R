@@ -11,7 +11,7 @@ load("~/Documents/github/corsica/modules/stats.RData")
 
 ## Compile games
 # Scrape
-game_list <- ds.compile_games(games = 21000:21200,
+game_list <- ds.compile_games(games = 21000:21230,
                               season = "20162017",
                               try_tolerance = 5,
                               agents = ds.user_agents
