@@ -3,7 +3,7 @@
 
 
 ## Dependencies
-require(RCurl); require(rjson); require(dplyr); require(lubridate); require(doMC); require(Kmisc)
+require(RCurl); require(rjson); require(dplyr); require(lubridate); require(doMC); require(Kmisc); require(RSQLite)
 load("~/Documents/github/corsica/modules/user_functions.RData")
 load("~/Documents/github/corsica/modules/dryscrape.RData")
 load("~/Documents/github/corsica/modules/stats.RData")
