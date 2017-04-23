@@ -297,8 +297,8 @@ st.sum_skater <- function(x, venue) {
                 iFF = sum(event_type %in% st.fenwick_events & event_player_1 == player),
                 iSF = sum(event_type %in% st.shot_events & event_player_1 == player),
                 G = sum(event_type == "GOAL" & event_player_1 == player),
-                A1 = sum(event_type == "GOAL" & event_player_2 == player),
-                A2 = sum(event_type == "GOAL" & event_player_3 == player),
+                A1 = sum(na.omit(event_type == "GOAL" & event_player_2 == player)),
+                A2 = sum(na.omit(event_type == "GOAL" & event_player_3 == player)),
                 iGVA = sum(event_type == "GIVEAWAY" & event_player_1 == player),
                 iTKA = sum(event_type == "TAKEAWAY" & event_player_1 == player),
                 iHF = sum(event_type == "HIT" & event_player_1 == player),
@@ -306,16 +306,18 @@ st.sum_skater <- function(x, venue) {
                 iBLK = sum(event_type == "BLOCKED_SHOT" & event_player_1 == player),
                 iFOW = sum(event_type == "FACEOFF" & event_player_1 == player),
                 iFOL = sum(event_type == "FACEOFF" & event_player_2 == player),
-                iPENT2 = sum(1*(event_type == "PENALTY" & event_player_1 == player) +
-                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
-                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                iPENT2 = sum(na.omit(1*(event_type == "PENALTY" & event_player_1 == player) +
+                                     1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
                              ),
-                iPENT5 = sum(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE),
-                iPEND2 = sum(1*(event_type == "PENALTY" & event_player_2 == player) +
-                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
-                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                iPENT5 = sum(na.omit(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)),
+                iPEND2 = sum(na.omit(1*(event_type == "PENALTY" & event_player_2 == player) +
+                                     1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
                              ),
-                iPEND5 = sum(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)
+                iPEND5 = sum(na.omit(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE))
                 ) %>%
       data.frame() %>%
       return()
@@ -358,8 +360,8 @@ st.sum_skater <- function(x, venue) {
                 iFF = sum(event_type %in% st.fenwick_events & event_player_1 == player),
                 iSF = sum(event_type %in% st.shot_events & event_player_1 == player),
                 G = sum(event_type == "GOAL" & event_player_1 == player),
-                A1 = sum(event_type == "GOAL" & event_player_2 == player),
-                A2 = sum(event_type == "GOAL" & event_player_3 == player),
+                A1 = sum(na.omit(event_type == "GOAL" & event_player_2 == player)),
+                A2 = sum(na.omit(event_type == "GOAL" & event_player_3 == player)),
                 iGVA = sum(event_type == "GIVEAWAY" & event_player_1 == player),
                 iTKA = sum(event_type == "TAKEAWAY" & event_player_1 == player),
                 iHF = sum(event_type == "HIT" & event_player_1 == player),
@@ -367,16 +369,18 @@ st.sum_skater <- function(x, venue) {
                 iBLK = sum(event_type == "BLOCKED_SHOT" & event_player_1 == player),
                 iFOW = sum(event_type == "FACEOFF" & event_player_1 == player),
                 iFOL = sum(event_type == "FACEOFF" & event_player_2 == player),
-                iPENT2 = sum(1*(event_type == "PENALTY" & event_player_1 == player) +
-                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
-                             1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                iPENT2 = sum(na.omit(1*(event_type == "PENALTY" & event_player_1 == player) +
+                                     1*(event_type == "PENALTY" & event_player_1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENALTY" & event_player_1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
                              ),
-                iPENT5 = sum(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE),
-                iPEND2 = sum(1*(event_type == "PENALTY" & event_player_2 == player) +
-                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
-                             1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                iPENT5 = sum(na.omit(event_type == "PENALTY" & event_player_1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)),
+                iPEND2 = sum(na.omit(1*(event_type == "PENALTY" & event_player_2 == player) +
+                                     1*(event_type == "PENALTY" & event_player_2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENALTY" & event_player_2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
                              ),
-                iPEND5 = sum(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)
+                iPEND5 = sum(na.omit(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE))
                 ) %>%
       data.frame() %>%
       return()

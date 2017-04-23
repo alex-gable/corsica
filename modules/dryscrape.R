@@ -645,6 +645,11 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
   home_team_ <- na_if_null(nabs(pbp$gameData$teams$home$id))
   away_team_ <- na_if_null(nabs(pbp$gameData$teams$away$id))
   
+  winning_goalie_ <- na_if_null(nabs(pbp$liveData$decisions$winner$id))
+  first_star_ <- na_if_null(nabs(pbp$liveData$decisions$firstStar$id))
+  second_star_ <- na_if_null(nabs(pbp$liveData$decisions$secondStar$id))
+  third_star_ <- na_if_null(nabs(pbp$liveData$decisions$thirdStar$id))
+  
   if(!is.null(pbp_df)) {
     
     pbp_df %>%
@@ -743,7 +748,11 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
                            preview_description = na_if_null(media_preview_description),
                            recap_headline = na_if_null(media_recap_headline),
                            recap_subhead = na_if_null(media_recap_subhead),
-                           recap_description = na_if_null(media_recap_description)
+                           recap_description = na_if_null(media_recap_description),
+                           winning_goalie = winning_goalie_,
+                           first_star = first_star_,
+                           second_star = second_star_,
+                           third_star = third_star_
                            )
   
   game_list <- list(pbp_df,
