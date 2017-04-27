@@ -60,8 +60,9 @@ ds.get_pbp <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -75,11 +76,13 @@ ds.get_pbp <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0 (
         ) ->
     raw_text
     
+    json_check <- try(fromJSON(raw_text), silent = TRUE)
+    
     try_tolerance <- try_tolerance - 1
     
   }
   
-  raw_json <- try(fromJSON(raw_text))
+  raw_json <- try(fromJSON(raw_text), silent = TRUE)
   
   if(class(raw_json) == "try-error") {raw_json <- NULL}
   
@@ -101,8 +104,9 @@ ds.get_shifts <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -116,11 +120,13 @@ ds.get_shifts <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.
         ) ->
     raw_text
     
+    json_check <- try(fromJSON(raw_text), silent = TRUE)
+    
     try_tolerance <- try_tolerance - 1
     
   }
   
-  raw_json <- try(fromJSON(raw_text))
+  raw_json <- try(fromJSON(raw_text), silent = TRUE)
   
   if(class(raw_json) == "try-error") {raw_json <- NULL}
   
@@ -143,8 +149,9 @@ ds.get_media <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -158,11 +165,13 @@ ds.get_media <- function(year, game_id, try_tolerance = 3, agents = "Mozilla/5.0
         ) ->
     raw_text
     
+    json_check <- try(fromJSON(raw_text), silent = TRUE)
+    
     try_tolerance <- try_tolerance - 1
     
   }
   
-  raw_json <- try(fromJSON(raw_text))
+  raw_json <- try(fromJSON(raw_text), silent = TRUE)
   
   if(class(raw_json) == "try-error") {raw_json <- NULL}
   
@@ -187,8 +196,9 @@ ds.get_highlights <- function(season, game_id, try_tolerance = 3, agents = "Mozi
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -201,6 +211,9 @@ ds.get_highlights <- function(season, game_id, try_tolerance = 3, agents = "Mozi
                  )
         ) ->
     raw_text
+    
+    clean_text <- gsub("^.+?\\(\\{", "\\{", raw_text)
+    json_check <- try(fromJSON(clean_text), silent = TRUE)
     
     try_tolerance <- try_tolerance - 1
     
@@ -228,8 +241,9 @@ ds.get_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla/5.
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -242,6 +256,8 @@ ds.get_team_profile <- function(team_id, try_tolerance = 3, agents = "Mozilla/5.
                  )
         ) ->
     raw_text
+    
+    json_check <- try(fromJSON(raw_text))
     
     try_tolerance <- try_tolerance - 1
     
@@ -267,8 +283,9 @@ ds.get_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozill
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -281,6 +298,8 @@ ds.get_player_profile <- function(player_id, try_tolerance = 3, agents = "Mozill
                  )
         ) ->
     raw_text
+    
+    json_check <- try(fromJSON(raw_text))
     
     try_tolerance <- try_tolerance - 1
     
@@ -308,8 +327,9 @@ ds.get_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0
                )
   
   raw_text <- NULL
+  json_check <- NULL
   
-  while(class(raw_text) != "character" & try_tolerance > 0) {
+  while({class(raw_text) != "character" | class(json_check) != "list"} & try_tolerance > 0) {
     
     try(
         url %>%
@@ -322,6 +342,8 @@ ds.get_schedule <- function(start, end, try_tolerance = 3, agents = "Mozilla/5.0
                  )
         ) ->
     raw_text
+    
+    json_check <- try(fromJSON(raw_text))
     
     try_tolerance <- try_tolerance - 1
     
