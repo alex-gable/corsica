@@ -1,5 +1,5 @@
 ### USER FUNCTIONS ###
-# Last edit: Manny (2017-03-29)
+# Last edit: Manny (2017-05-06)
 
 
 ## Description
@@ -161,3 +161,29 @@ na_as_zero <- function(x) {
   return(x)
   
 }
+
+# F Table to Data Frame
+ftable2df <- function(mydata) {
+  
+  ## Description
+  # ftable2df() returns a data.frame from an ftable object
+  
+  ifelse(class(mydata) == "ftable", 
+         mydata <- mydata, 
+         mydata <- ftable(mydata)
+         )
+  
+  dfrows <- rev(expand.grid(rev(attr(mydata, "row.vars"))))
+  
+  dfcols <- as.data.frame.matrix(mydata)
+  
+  do.call(paste, 
+          c(rev(expand.grid(rev(attr(mydata, "col.vars")))), 
+            sep = "_"
+            )
+          ) -> names(dfcols)
+  
+  cbind(dfrows, dfcols)
+  
+}
+

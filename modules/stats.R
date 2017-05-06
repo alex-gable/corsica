@@ -1,5 +1,5 @@
 ### STATS ###
-# Last edit: Manny (2017-04-23)
+# Last edit: Manny (2017-05-06)
 
 
 ## Description
@@ -138,6 +138,147 @@ st.pbp_enhance <- function(pbp) {
            event_rinkside = st.which_zone(coords_x),
            event_circle = st.which_circle(coords_x, coords_y)
            ) %>%
+    data.frame() ->
+    enhanced_pbp
+  
+  enhanced_pbp %>%
+  filter(event_type %in% c("FACEOFF",
+                           "TAKEAWAY", 
+                           "BLOCKED_SHOT", 
+                           "SHOT", 
+                           "MISSED_SHOT", 
+                           "HIT", 
+                           "GIVEAWAY",
+                           "GOAL"
+                           )
+         ) %>%
+  group_by(season, game_id) %>%
+  arrange(event_index) %>%
+  mutate(seconds_since_last = game_seconds - lag(game_seconds, 1),
+         event_type_last = lag(event_type, 1),
+         event_team_last = lag(event_team, 1),
+         event_rinkside_last = lag(event_rinkside, 1),
+         coords_x_last = lag(coords_x, 1),
+         coords_y_last = lag(coords_y, 1)
+         ) %>%
+  ungroup() %>%
+  arrange(season, game_id, event_index) %>%
+  select(season,
+         session,
+         game_id,
+         game_date,
+         game_period,
+         game_seconds,
+         event_index,
+         game_strength_state,
+         game_score_state,
+         home_goalie,
+         away_goalie,
+         home_score,
+         away_score,
+         home_skaters,
+         away_skaters,
+         home_team,
+         away_team,
+         event_type,
+         event_detail,
+         event_distance,
+         event_angle,
+         event_rinkside,
+         event_team,
+         coords_x,
+         coords_y,
+         seconds_since_last,
+         event_type_last,
+         event_team_last,
+         event_rinkside_last,
+         coords_x_last,
+         coords_y_last
+         ) %>%
+  data.frame() ->
+  xg_pbp
+
+  xg_pbp$game_strength_state[which(xg_pbp$game_strength_state %in% c("5v5", "4v4", "3v3", "5v4", "4v5", "5v3", "3v5", "4v3", "3v4", "5vE", "Ev5", "4vE", "Ev4", "3vE", "Ev3") == FALSE)] <- "5v5"
+  
+  xg_pbp %>%
+  filter(event_type %in% st.fenwick_events,
+         !{game_period > 4 & session == "R"},
+         !is.na(coords_x),
+         !is.na(coords_y)
+         ) %>%
+  mutate(same_team_last = 1*(event_team == event_team_last),
+         is_home_team = 1*(event_team == home_team),
+         is_EN = 1*({event_team == home_team & away_goalie == 0} | {event_team == away_team & home_goalie == 0})
+         ) %>%
+  data.frame() ->
+  model_data
+  
+  model_data$shooter_strength_state <- ifelse(model_data$is_home_team == 1,
+                                              model_data$game_strength_state,
+                                              str_rev(model_data$game_strength_state)
+                                              )
+
+  model_data$shooter_score_adv <- ifelse(model_data$is_home_team == 1,
+                                         model_data$home_score - model_data$away_score,
+                                         model_data$away_score - model_data$home_score
+                                         )
+  
+  model_data$event_detail[which(is.na(model_data$event_detail) == TRUE)] <- "Unknown"
+  model_data <- na.omit(model_data)
+  
+  model_data$distance_from_last <- sqrt((model_data$coords_x - model_data$coords_x_last)^2 + (model_data$coords_y - model_data$coords_y_last)^2)
+
+  model_data$is_goal <- 1*(model_data$event_type == "GOAL")
+  model_data$is_save <- 1*(model_data$event_type == "SHOT")
+  
+  vars <- c("event_distance",
+            "event_angle",
+            "seconds_since_last",
+            "event_type_last",
+            "same_team_last",
+            "is_home_team",
+            "is_EN",
+            "shooter_strength_state",
+            "shooter_score_adv",
+            "distance_from_last"
+            )
+  
+  model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
+                          model.matrix(is_goal ~ 
+                                       poly(event_distance, 3) + poly(event_angle, 3) + 
+                                       event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
+                                       is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
+                                       data = model_data[, c("is_goal", vars)]
+                                       )
+                          )
+  
+  predicted <- glmnet::predict.cv.glmnet(xg_glm,
+                                         newx = as.matrix(model_mat[, -1]),
+                                         s = "lambda.min",
+                                         type = "response"
+                                         )
+  
+  ftable2df(predicted) %>%
+    rename(val = `1`) %>%
+    group_by(Var2) %>%
+    summarise(prob_miss = sum(val*(Var1 == 1)),
+              prob_save = sum(val*(Var1 == 2)),
+              prob_goal = sum(val*(Var1 == 3))
+              ) %>%
+    data.frame() ->
+    prob_df
+  
+  model_data$prob_goal <- as.numeric(prob_df$prob_goal)
+  model_data$prob_save <- as.numeric(prob_df$prob_save)
+  
+  merge(enhanced_pbp,
+        model_data %>%
+          select(game_id, event_index, prob_goal, prob_save) %>%
+          data.frame(),
+        by.x = c("game_id", "event_index"),
+        by.y = c("game_id", "event_index"),
+        all.x = TRUE
+        ) %>%
     data.frame() ->
     enhanced_pbp
   
