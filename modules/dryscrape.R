@@ -1124,16 +1124,16 @@ ds.compile_games <- function(games, season, try_tolerance = 3, agents = "Mozilla
                               1*(is.na(away_on_5) == TRUE) -
                               1*(is.na(away_on_6) == TRUE) -
                               1*(!is.na(away_goalie)),
-           home_score = cumsum(event_type == "GOAL" & event_team == home_team),
-           away_score = cumsum(event_type == "GOAL" & event_team == away_team),
+           home_score = cumsum(event_type == "GOAL" & event_team == home_team) - 1*(event_type == "GOAL" & event_team == home_team),
+           away_score = cumsum(event_type == "GOAL" & event_team == away_team) - 1*(event_type == "GOAL" & event_team == away_team),
            event_length = nabs(lead(game_seconds, 1) - game_seconds)
            ) %>%
     ungroup() %>%
-    mutate(game_strength_state = paste(ifelse(is.na(home_goalie) == TRUE,
+    mutate(game_strength_state = paste(ifelse(is.na(home_goalie) == TRUE | home_goalie == 0,
                                               "E",
                                               home_skaters
                                               ),
-                                       ifelse(is.na(away_goalie) == TRUE,
+                                       ifelse(is.na(away_goalie) == TRUE | away_goalie == 0,
                                               "E",
                                               away_skaters
                                               ),
