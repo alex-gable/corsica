@@ -185,7 +185,7 @@ vars <- c("event_distance",
 model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
                         model.matrix(is_goal ~ 
                                      poly(event_distance, 3) + poly(event_angle, 3) + 
-                                     event_type_last*same_team_last*(poly(seconds_since_last, 2) + poly(distance_from_last, 2)) + 
+                                     event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
                                      is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
                                      data = model_data[, c("is_goal", vars)]
                                      )

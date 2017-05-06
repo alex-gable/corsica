@@ -219,7 +219,7 @@ foreach(i = 1:4, .combine = "rbind") %do% {
   model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
                           model.matrix(is_goal ~ 
                                        poly(event_distance, 3) + poly(event_angle, 3) + 
-                                       event_type_last*same_team_last*(poly(seconds_since_last, 2) + poly(distance_from_last, 2)) + 
+                                       event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
                                        is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
                                        data = model_data[, c("is_goal", vars)]
                                        )
@@ -441,3 +441,108 @@ foreach(i = 1:4, .combine = "rbind") %do% {
 # LL1 (ALL) =  || LL2 (ALL) =  || LL1 (5v5) =  || LL2 (5v5) =  || LL1 (NEN) =  || LL2 (NEN) =  
 
 
+## Test Results
+# Load model
+load("~/Documents/github/corsica/models/xg_model.RData")
+
+# Response variables
+model_data$is_goal <- 1*(model_data$event_type == "GOAL")
+model_data$is_save <- 1*(model_data$event_type == "SHOT")
+
+# Feature list
+vars <- c("event_distance",
+          "event_angle",
+          "seconds_since_last",
+          "event_type_last",
+          "same_team_last",
+          "is_home_team",
+          "is_EN",
+          "shooter_strength_state",
+          "shooter_score_adv",
+          "distance_from_last"
+          )
+
+# Build model matrix
+model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
+                        model.matrix(is_goal ~ 
+                                     poly(event_distance, 3) + poly(event_angle, 3) + 
+                                     event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
+                                     is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
+                                     data = model_data[, c("is_goal", vars)]
+                                     )
+                        )
+
+# Predict xG
+predicted <- predict.cv.glmnet(xg_glm,
+                               newx = as.matrix(model_mat[, -1]),
+                               s = "lambda.min",
+                               type = "response"
+                               )
+  
+# Convert to data frame
+ftable2df(predicted) %>%
+  rename(val = `1`) %>%
+  group_by(Var2) %>%
+  summarise(prob_miss = sum(val*(Var1 == 1)),
+            prob_save = sum(val*(Var1 == 2)),
+            prob_goal = sum(val*(Var1 == 3))
+            ) %>%
+  data.frame() ->
+  prob_df
+  
+# Append xG
+model_data$prob_goal <- as.numeric(prob_df$prob_goal)
+model_data$prob_save <- as.numeric(prob_df$prob_save)
+
+# Test averages
+model_data %>%
+  summarise(goals = sum(event_type == "GOAL"),
+            xgoals = sum(na.omit(prob_goal)),
+            shots = sum(event_type %in% st.shot_events),
+            xshots = sum(na.omit(prob_goal + prob_save)),
+            unblocked = sum(event_type %in% st.fenwick_events)
+            ) %>%
+  mutate(sh. = goals/shots,
+         xsh. = xgoals/xshots,
+         fsh. = goals/unblocked,
+         xfsh. = xgoals/unblocked
+         ) %>%
+  data.frame()
+
+# xG bins
+model_data %>%
+  mutate(bin = cut(prob_goal, seq(0, 1, 0.05))) %>%
+  group_by(bin) %>%
+  summarise(goals = sum(event_type == "GOAL"),
+            xgoals = sum(na.omit(prob_goal)),
+            shots = sum(event_type %in% st.shot_events),
+            xshots = sum(na.omit(prob_goal + prob_save)),
+            unblocked = sum(event_type %in% st.fenwick_events)
+            ) %>%
+  mutate(sh. = goals/shots,
+         xsh. = xgoals/xshots,
+         fsh. = goals/unblocked,
+         xfsh. = xgoals/unblocked
+         ) %>%
+  data.frame() ->
+  bin_data
+
+# Game results
+model_data %>%
+  group_by(game_id) %>%
+  summarise(home_gf = sum(event_type == "GOAL" & event_team == home_team),
+            away_gf = sum(event_type == "GOAL" & event_team == away_team),
+            home_xgf = sum(na.omit(prob_goal*(event_team == home_team))),
+            away_xgf = sum(na.omit(prob_goal*(event_team == away_team)))
+            ) %>%
+  data.frame() ->
+  games
+
+games %>%
+  mutate(home_win = 1*(home_gf > away_gf),
+         home_edge = cut(home_xgf - away_xgf, seq(-10, 10, 1))
+         ) %>%
+  group_by(home_edge) %>%
+  summarise(win_pct = sum(home_win)/n(),
+            games = n()
+            )
