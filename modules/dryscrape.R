@@ -672,6 +672,25 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
   second_star_ <- na_if_null(nabs(pbp$liveData$decisions$secondStar$id))
   third_star_ <- na_if_null(nabs(pbp$liveData$decisions$thirdStar$id))
   
+  if(sum(is.na(rinkside_df)) > 0) {
+    
+    pbp_df %>%
+      group_by(game_period) %>%
+      summarise(home_right = sum(event_type %in% st.fenwick_events & coords_x > 25 & event_team == home_team_),
+                home_left = sum(event_type %in% st.fenwick_events & coords_x < -25 & event_team == home_team_)
+                ) %>%
+      mutate(home_side = as.factor(1*(home_right > home_left) + 2*(home_left > home_right)),
+             away_side = as.factor(3 - nabs(home_side))
+             ) %>%
+      select(game_period, home_side, away_side) %>%
+      data.frame() ->
+      rinkside_df
+    
+    levels(rinkside_df$home_side) <- c("L", "R")
+    levels(rinkside_df$away_side) <- c("L", "R")
+    
+  }
+  
   if(!is.null(pbp_df)) {
     
     pbp_df %>%
@@ -689,7 +708,7 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
       pbp_df
   
   }
-  
+
   if(!is.null(shift_df)) {
   
     shift_df %>%

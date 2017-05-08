@@ -8,7 +8,7 @@
 
 
 ## Dependencies
-require(dplyr); require(Kmisc); require(doMC)
+require(dplyr); require(Kmisc); require(doMC); require(glmnet); require(survival)
 
 
 ## Objects
@@ -274,6 +274,143 @@ st.pbp_enhance <- function(pbp) {
   merge(enhanced_pbp,
         model_data %>%
           select(game_id, event_index, prob_goal, prob_save) %>%
+          data.frame(),
+        by.x = c("game_id", "event_index"),
+        by.y = c("game_id", "event_index"),
+        all.x = TRUE
+        ) %>%
+    data.frame() ->
+    enhanced_pbp
+  
+  enhanced_pbp %>%
+  filter(event_type %in% c(st.corsi_events, "FACEOFF"),
+         !{session == "R" & game_period > 4},
+         !is.na(home_rinkside),
+         !is.na(away_rinkside)
+         ) %>%
+  arrange(game_id, event_index) %>%
+  mutate(faceoff_ref = cumsum(event_type == "FACEOFF")) %>%
+  group_by(game_id, faceoff_ref) %>%
+  arrange(event_index) %>%
+  mutate(seconds_since = nabs(game_seconds) - min(nabs(game_seconds)),
+         rinkside_start = first(event_rinkside),
+         is_home_team = 1*({event_type %in% st.fenwick_events & event_team == home_team} |
+                           {event_type == "BLOCKED_SHOT" & event_team == away_team}),
+         home_zonestart = 1*(rinkside_start == home_rinkside) + 2*(rinkside_start == "N") + 3*(rinkside_start != home_rinkside & rinkside_start != "N"),
+         home_score_adv = home_score - away_score
+         ) %>%
+  ungroup() %>%
+  arrange(game_id, event_index) %>%
+  data.frame() ->
+  adj_pbp
+  
+  adj_pbp$game_strength_state[which(adj_pbp$game_strength_state %in% c("5v5", "4v4", "3v3", "5v4", "4v5", "5v3", "3v5", "4v3", "3v4", "5vE", "Ev5", "4vE", "Ev4", "3vE", "Ev3") == FALSE)] <- "5v5"
+  
+  adj_pbp %>%
+  filter(game_strength_state %in% c("5v5",
+                                    "4v4",
+                                    "3v3",
+                                    "5v4",
+                                    "4v5",
+                                    "5v3",
+                                    "3v5",
+                                    "4v3",
+                                    "3v4",
+                                    "5vE",
+                                    "Ev5",
+                                    "4vE",
+                                    "Ev4",
+                                    "3vE",
+                                    "Ev3"
+                                    )
+         ) %>%
+  group_by(game_id) %>%
+  arrange(event_index) %>%
+  mutate(elapsed = game_seconds - lag(game_seconds, 1),
+         hazard_goal = 1*(event_type == "GOAL"),
+         hazard_shot = 1*(event_type %in% st.shot_events),
+         hazard_fenwick = 1*(event_type %in% st.fenwick_events),
+         hazard_corsi = 1*(event_type %in% st.corsi_events)
+         ) %>%
+  ungroup() %>%
+  select(game_id,
+         event_index,
+         event_type,
+         elapsed,
+         hazard_goal:hazard_corsi,
+         is_home_team,
+         seconds_since,
+         rinkside_start,
+         home_zonestart,
+         game_strength_state,
+         home_score_adv,
+         game_seconds
+         ) %>%
+  data.frame() ->
+  model_data
+
+  model_data$elapsed[which(is.na(model_data$elapsed) == TRUE)] <- 0
+  model_data$elapsed[which(model_data$elapsed == 0)] <- 0.01
+
+  model_mat <- model.matrix(hazard_corsi ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_home_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_corsi, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_fenwick ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_home_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_fenwick, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_shot ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_home_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_shot, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_goal ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_home_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_goal, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_corsi ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_away_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_corsi, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_fenwick ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_away_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_fenwick, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_shot ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_away_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_shot, model_mat, s = "lambda.min")))
+  
+  model_mat <- model.matrix(hazard_goal ~
+                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                            data = model_data
+                            )
+  
+  model_data$adj_away_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_goal, model_mat, s = "lambda.min")))
+  
+  merge(enhanced_pbp,
+        model_data %>%
+          select(game_id, event_index, adj_home_corsi:adj_away_goal) %>%
           data.frame(),
         by.x = c("game_id", "event_index"),
         by.y = c("game_id", "event_index"),
