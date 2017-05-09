@@ -2,7 +2,8 @@
 # Last edit: Manny (2017-05-06)
 
 ## Dependencies
-require(dplyr); require(RSQLite); require(doMC); require(neuralnet); require(glmnet); require(Kmisc)
+require(dplyr); require(RSQLite); require(doMC); require(neuralnet); 
+require(glmnet); require(Kmisc); require(caret)
 load("~/Documents/github/corsica/modules/user_functions.RData")
 load("~/Documents/github/corsica/modules/stats.RData")
 
@@ -168,6 +169,10 @@ save(list = c("pbp", "model_data"), file = "~/Documents/github/corsica/models/tr
 model_data$is_goal <- 1*(model_data$event_type == "GOAL")
 model_data$is_save <- 1*(model_data$event_type == "SHOT")
 
+# Coerce to factor
+model_data$event_type_last <- as.factor(model_data$event_type_last)
+model_data$shooter_strength_state <- as.factor(model_data$shooter_strength_state)
+
 # Feature list
 vars <- c("event_distance",
           "event_angle",
@@ -181,15 +186,23 @@ vars <- c("event_distance",
           "distance_from_last"
           )
 
-# Build model matrix
-model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
-                        model.matrix(is_goal ~ 
-                                     poly(event_distance, 3) + poly(event_angle, 3) + 
-                                     event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
-                                     is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
-                                     data = model_data[, c("is_goal", vars)]
-                                     )
+# Build dummy vars
+xg_process <- dummyVars(is_goal ~ 
+                        poly(event_distance, 3, raw = TRUE) + poly(event_angle, 3, raw = TRUE) + 
+                        event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
+                        is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
+                        data = model_data[, c("is_goal", vars)],
+                        contrasts = TRUE,
+                        fullRank = TRUE
                         )
+
+# Build model matrix
+model_mat <- cbind(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
+                   predict(xg_process,
+                           model_data[, c("is_goal", vars)]
+                           ) %>%
+                     data.frame()
+                   )
 
 # Fit GLM
 xg_glm <- cv.glmnet(x = as.matrix(model_mat[, -1]),
@@ -201,5 +214,5 @@ xg_glm <- cv.glmnet(x = as.matrix(model_mat[, -1]),
                     )
 
 # Save
-save(list = "xg_glm", file = "~/Documents/github/corsica/models/xg_model.RData")
+save(list = c("xg_glm", "xg_process"), file = "~/Documents/github/corsica/models/xg_model.RData")
 

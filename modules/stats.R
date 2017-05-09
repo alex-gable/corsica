@@ -46,6 +46,25 @@ c("SHOT",
   ) ->
   st.corsi_events
 
+c("3v3",
+  "5v5", 
+  "4v4", 
+  "5v4", 
+  "4v5", 
+  "5v3", 
+  "3v5", 
+  "4v3", 
+  "3v4", 
+  "5vE", 
+  "Ev5", 
+  "4vE", 
+  "Ev4", 
+  "3vE", 
+  "Ev3"
+  ) %>%
+  as.factor() ->
+  st.strength_states
+
 ## Meta Functions
 # GSAA
 st.gsaa <- function() {}     # TO BE ADDED
@@ -198,7 +217,7 @@ st.pbp_enhance <- function(pbp) {
   data.frame() ->
   xg_pbp
 
-  xg_pbp$game_strength_state[which(xg_pbp$game_strength_state %in% c("5v5", "4v4", "3v3", "5v4", "4v5", "5v3", "3v5", "4v3", "3v4", "5vE", "Ev5", "4vE", "Ev4", "3vE", "Ev3") == FALSE)] <- "5v5"
+  xg_pbp$game_strength_state[which(xg_pbp$game_strength_state %in% st.strength_states == FALSE)] <- "5v5"
   
   xg_pbp %>%
   filter(event_type %in% st.fenwick_events,
@@ -223,6 +242,7 @@ st.pbp_enhance <- function(pbp) {
                                          model_data$away_score - model_data$home_score
                                          )
   
+  model_data$event_detail <- as.character(model_data$event_detail)
   model_data$event_detail[which(is.na(model_data$event_detail) == TRUE)] <- "Unknown"
   model_data <- na.omit(model_data)
   
@@ -243,14 +263,15 @@ st.pbp_enhance <- function(pbp) {
             "distance_from_last"
             )
   
-  model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
-                          model.matrix(is_goal ~ 
-                                       poly(event_distance, 3) + poly(event_angle, 3) + 
-                                       event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
-                                       is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
-                                       data = model_data[, c("is_goal", vars)]
-                                       )
-                          )
+  model_data$event_type_last <- as.factor(model_data$event_type_last)
+  model_data$shooter_strength_state <- as.factor(model_data$shooter_strength_state)
+  
+  model_mat <- cbind(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
+                     predict(xg_process,
+                             model_data[, c("is_goal", vars)]
+                             ) %>%
+                       data.frame()
+                     )
   
   predicted <- glmnet::predict.cv.glmnet(xg_glm,
                                          newx = as.matrix(model_mat[, -1]),
@@ -304,26 +325,10 @@ st.pbp_enhance <- function(pbp) {
   data.frame() ->
   adj_pbp
   
-  adj_pbp$game_strength_state[which(adj_pbp$game_strength_state %in% c("5v5", "4v4", "3v3", "5v4", "4v5", "5v3", "3v5", "4v3", "3v4", "5vE", "Ev5", "4vE", "Ev4", "3vE", "Ev3") == FALSE)] <- "5v5"
+  adj_pbp$game_strength_state[which(adj_pbp$game_strength_state %in% st.strength_states == FALSE)] <- "5v5"
   
   adj_pbp %>%
-  filter(game_strength_state %in% c("5v5",
-                                    "4v4",
-                                    "3v3",
-                                    "5v4",
-                                    "4v5",
-                                    "5v3",
-                                    "3v5",
-                                    "4v3",
-                                    "3v4",
-                                    "5vE",
-                                    "Ev5",
-                                    "4vE",
-                                    "Ev4",
-                                    "3vE",
-                                    "Ev3"
-                                    )
-         ) %>%
+  filter(game_strength_state %in% st.strength_states) %>%
   group_by(game_id) %>%
   arrange(event_index) %>%
   mutate(elapsed = game_seconds - lag(game_seconds, 1),
@@ -352,61 +357,104 @@ st.pbp_enhance <- function(pbp) {
   model_data$elapsed[which(is.na(model_data$elapsed) == TRUE)] <- 0
   model_data$elapsed[which(model_data$elapsed == 0)] <- 0.01
 
-  model_mat <- model.matrix(hazard_corsi ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$home_zonestart <- as.factor(model_data$home_zonestart)
+  model_data$game_strength_state <- as.factor(model_data$game_strength_state)
   
-  model_data$adj_home_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_corsi, model_mat, s = "lambda.min")))
+  model_mat <- predict(home_corsi_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_fenwick ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_home_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_corsi, 
+                                                                          as.matrix(model_mat), 
+                                                                          s = "lambda.min"
+                                                                          )
+                                                )
+                                     )
   
-  model_data$adj_home_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_fenwick, model_mat, s = "lambda.min")))
+  model_mat <- predict(home_fenwick_process,
+                       model_data
+                       ) %>%
+                 data.frame()
+
+  model_data$adj_home_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_fenwick, 
+                                                                            as.matrix(model_mat), 
+                                                                            s = "lambda.min"
+                                                                            )
+                                                  )
+                                       )  
+
+  model_mat <- predict(home_shot_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_shot ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_home_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_shot, 
+                                                                         as.matrix(model_mat), 
+                                                                         s = "lambda.min"
+                                                                         )
+                                               )
+                                    )
   
-  model_data$adj_home_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_shot, model_mat, s = "lambda.min")))
+  model_mat <- predict(home_goal_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_goal ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_home_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_goal, 
+                                                                         as.matrix(model_mat), 
+                                                                         s = "lambda.min"
+                                                                         )
+                                               )
+                                    )
   
-  model_data$adj_home_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_home_goal, model_mat, s = "lambda.min")))
+  model_mat <- predict(away_corsi_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_corsi ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_away_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_corsi, 
+                                                                          as.matrix(model_mat), 
+                                                                          s = "lambda.min"
+                                                                          )
+                                                )
+                                     )
   
-  model_data$adj_away_corsi <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_corsi, model_mat, s = "lambda.min")))
+  model_mat <- predict(away_fenwick_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_fenwick ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_away_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_fenwick, 
+                                                                            as.matrix(model_mat), 
+                                                                            s = "lambda.min"
+                                                                            )
+                                                  )
+                                       )
   
-  model_data$adj_away_fenwick <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_fenwick, model_mat, s = "lambda.min")))
+  model_mat <- predict(away_shot_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_shot ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
+  model_data$adj_away_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_shot, 
+                                                                         as.matrix(model_mat), 
+                                                                         s = "lambda.min"
+                                                                         )
+                                               )
+                                    )
   
-  model_data$adj_away_shot <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_shot, model_mat, s = "lambda.min")))
+  model_mat <- predict(away_goal_process,
+                       model_data
+                       ) %>%
+                 data.frame()
   
-  model_mat <- model.matrix(hazard_goal ~
-                            as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                            data = model_data
-                            )
-  
-  model_data$adj_away_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_goal, model_mat, s = "lambda.min")))
+  model_data$adj_away_goal <- 1/exp(as.numeric(glmnet::predict.cv.glmnet(cox_away_goal, 
+                                                                         as.matrix(model_mat), 
+                                                                         s = "lambda.min"
+                                                                         )
+                                               )
+                                    )
   
   merge(enhanced_pbp,
         model_data %>%
@@ -659,6 +707,326 @@ st.sum_skater <- function(x, venue) {
                                      )
                              ),
                 iPEND5 = sum(na.omit(event_type == "PENALTY" & event_player_2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE))
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  }
+  
+}
+
+# Summarize Team Stats (Old PBP Format)
+st.old_sum_team <- function(x, venue) {
+  
+  ## Description
+  # old_sum_team() summarizes all team counting stats from a Corsica 1.0 PBP data frame object
+  # x is expected to be a grouped data frame with home_team or away_team as a grouping variable for \
+  # venue = "home" and venue = "away" respectively
+  
+  venue_ <- tolower(as.character(venue))
+  
+  if(venue_ == "home") {
+    
+    x %>%
+      rename(team = home_team) %>%
+      summarise(venue = "Home",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CF = sum(event_type %in% st.corsi_events & event_team == team),
+                CA = sum(event_type %in% st.corsi_events & event_team == away_team),
+                FF = sum(event_type %in% st.fenwick_events & event_team == team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                SF = sum(event_type %in% st.shot_events & event_team == team),
+                SA = sum(event_type %in% st.shot_events & event_team == away_team),
+                GF = sum(event_type == "GOAL" & event_team == team),
+                GA = sum(event_type == "GOAL" & event_team == away_team),
+                xGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == team))),
+                xGA = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                ACF = sum(na.omit(adj_home_corsi*(event_type %in% st.corsi_events & event_team == team))),
+                ACA = sum(na.omit(adj_away_corsi*(event_type %in% st.corsi_events & event_team == away_team))),
+                AFF = sum(na.omit(adj_home_fenwick*(event_type %in% st.fenwick_events & event_team == team))),
+                AFA = sum(na.omit(adj_away_fenwick*(event_type %in% st.fenwick_events & event_team == away_team))),
+                ASF = sum(na.omit(adj_home_shot*(event_type %in% st.shot_events & event_team == team))),
+                ASA = sum(na.omit(adj_away_shot*(event_type %in% st.shot_events & event_team == away_team))),
+                AGF = sum(na.omit(adj_home_goal*(event_type == "GOAL" & event_team == team))),
+                AGA = sum(na.omit(adj_away_goal*(event_type == "GOAL" & event_team == away_team))),
+                AxGF = sum(na.omit(adj_home_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == team))),
+                AxGA = sum(na.omit(adj_away_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != home_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == home_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                FOW = sum(event_type == "FACEOFF" & event_team == team),
+                FOL = sum(event_type == "FACEOFF" & event_team == away_team),
+                PENT2 = sum(1*(event_type == "PENL" & event_team == team) +
+                            1*(event_type == "PENL" & event_team == team & grepl("double minor", tolower(event_description)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == team & grepl("ps \\-|match|fighting|major", tolower(event_description)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENL" & event_team == team & grepl("fighting|major", tolower(event_description)) == TRUE),
+                PENTS = sum(event_type == "PENL" & event_team == team & grepl("ps \\-", tolower(event_description)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENL" & event_team == away_team) +
+                            1*(event_type == "PENL" & event_team == away_team & grepl("double minor", tolower(event_description)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == away_team & grepl("ps \\-|match|fighting|major", tolower(event_description)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENL" & event_team == away_team & grepl("fighting|major", tolower(event_description)) == TRUE),
+                PENDS = sum(event_type == "PENL" & event_team == away_team & grepl("ps \\-", tolower(event_description)) == TRUE),
+                
+                GVA = sum(event_type == "GIVEAWAY" & event_team == team),
+                TKA = sum(event_type == "TAKEAWAY" & event_team == team),
+                HF = sum(event_type == "HIT" & event_team == team),
+                HA = sum(event_type == "HIT" & event_team == away_team)
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  } else if(venue_ == "away") {
+    
+    x %>%
+      rename(team = away_team) %>%
+      summarise(venue = "Away",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CF = sum(event_type %in% st.corsi_events & event_team == team),
+                CA = sum(event_type %in% st.corsi_events & event_team == home_team),
+                FF = sum(event_type %in% st.fenwick_events & event_team == team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                SF = sum(event_type %in% st.shot_events & event_team == team),
+                SA = sum(event_type %in% st.shot_events & event_team == home_team),
+                GF = sum(event_type == "GOAL" & event_team == team),
+                GA = sum(event_type == "GOAL" & event_team == home_team),
+                xGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == team))),
+                xGA = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                ACF = sum(na.omit(adj_away_corsi*(event_type %in% st.corsi_events & event_team == team))),
+                ACA = sum(na.omit(adj_home_corsi*(event_type %in% st.corsi_events & event_team == home_team))),
+                AFF = sum(na.omit(adj_away_fenwick*(event_type %in% st.fenwick_events & event_team == team))),
+                AFA = sum(na.omit(adj_home_fenwick*(event_type %in% st.fenwick_events & event_team == home_team))),
+                ASF = sum(na.omit(adj_away_shot*(event_type %in% st.shot_events & event_team == team))),
+                ASA = sum(na.omit(adj_home_shot*(event_type %in% st.shot_events & event_team == home_team))),
+                AGF = sum(na.omit(adj_away_goal*(event_type == "GOAL" & event_team == team))),
+                AGA = sum(na.omit(adj_home_goal*(event_type == "GOAL" & event_team == home_team))),
+                AxGF = sum(na.omit(adj_away_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == team))),
+                AxGA = sum(na.omit(adj_home_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != home_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == home_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                FOW = sum(event_type == "FACEOFF" & event_team == team),
+                FOL = sum(event_type == "FACEOFF" & event_team == home_team),
+                PENT2 = sum(1*(event_type == "PENL" & event_team == team) +
+                            1*(event_type == "PENL" & event_team == team & grepl("double minor", tolower(event_description)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == team & grepl("ps \\-|match|fighting|major", tolower(event_description)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENL" & event_team == team & grepl("fighting|major", tolower(event_description)) == TRUE),
+                PENTS = sum(event_type == "PENL" & event_team == team & grepl("ps \\-", tolower(event_description)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENL" & event_team == home_team) +
+                            1*(event_type == "PENL" & event_team == home_team & grepl("double minor", tolower(event_description)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == home_team & grepl("ps \\-|match|fighting|major", tolower(event_description)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENL" & event_team == home_team & grepl("fighting|major", tolower(event_description)) == TRUE),
+                PENDS = sum(event_type == "PENL" & event_team == home_team & grepl("ps \\-", tolower(event_description)) == TRUE),
+                GVA = sum(event_type == "GIVEAWAY" & event_team == team),
+                TKA = sum(event_type == "TAKEAWAY" & event_team == team),
+                HF = sum(event_type == "HIT" & event_team == team),
+                HA = sum(event_type == "HIT" & event_team == home_team)
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  }
+  
+}
+
+# Summarize Skater Stats (Old PBP Format)
+st.old_sum_skater <- function(x, venue) {
+  
+  ## Description
+  # old_sum_skater() summarizes all skater counting stats from a Corsica 1.0 PBP data frame object
+  # x is expected to be a grouped data frame with home_on_x or away_on_x as a grouping variable \
+  # for venue = "home" and venue = "away" respectively
+  # A rename() argument must be passed before sum_skater() to convert home/away_on_x to player
+  
+  venue_ <- tolower(as.character(venue))
+  
+  if(venue_ == "home") {
+    
+    x %>%
+      summarise(venue = "Home",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CF = sum(event_type %in% st.corsi_events & event_team == home_team),
+                CA = sum(event_type %in% st.corsi_events & event_team == away_team),
+                FF = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                SF = sum(event_type %in% st.shot_events & event_team == home_team),
+                SA = sum(event_type %in% st.shot_events & event_team == away_team),
+                GF = sum(event_type == "GOAL" & event_team == home_team),
+                GA = sum(event_type == "GOAL" & event_team == away_team),
+                xGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                xGA = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                ACF = sum(na.omit(adj_home_corsi*(event_type %in% st.corsi_events & event_team == home_team))),
+                ACA = sum(na.omit(adj_away_corsi*(event_type %in% st.corsi_events & event_team == away_team))),
+                AFF = sum(na.omit(adj_home_fenwick*(event_type %in% st.fenwick_events & event_team == home_team))),
+                AFA = sum(na.omit(adj_away_fenwick*(event_type %in% st.fenwick_events & event_team == away_team))),
+                ASF = sum(na.omit(adj_home_shot*(event_type %in% st.shot_events & event_team == home_team))),
+                ASA = sum(na.omit(adj_away_shot*(event_type %in% st.shot_events & event_team == away_team))),
+                AGF = sum(na.omit(adj_home_goal*(event_type == "GOAL" & event_team == home_team))),
+                AGA = sum(na.omit(adj_away_goal*(event_type == "GOAL" & event_team == away_team))),
+                AxGF = sum(na.omit(adj_home_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                AxGA = sum(na.omit(adj_away_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != home_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == home_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                PENT2 = sum(1*(event_type == "PENL" & event_team == home_team) +
+                            1*(event_type == "PENL" & event_team == home_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == home_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENL" & event_team == home_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENL" & event_team == away_team) +
+                            1*(event_type == "PENL" & event_team == away_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == away_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENL" & event_team == away_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                
+                iCF = sum(event_type %in% st.corsi_events & p1 == player),
+                iFF = sum(event_type %in% st.fenwick_events & p1 == player),
+                iSF = sum(event_type %in% st.shot_events & p1 == player),
+                ixGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & p1 == player))),
+                G = sum(event_type == "GOAL" & p1 == player),
+                A1 = sum(na.omit(event_type == "GOAL" & p2 == player)),
+                A2 = sum(na.omit(event_type == "GOAL" & p3 == player)),
+                iGVA = sum(event_type == "GIVEAWAY" & p1 == player),
+                iTKA = sum(event_type == "TAKEAWAY" & p1 == player),
+                iHF = sum(event_type == "HIT" & p1 == player),
+                iHA = sum(event_type == "HIT" & p2 == player),
+                iBLK = sum(event_type == "BLOCKED_SHOT" & p2 == player),
+                iFOW = sum(event_type == "FACEOFF" & p1 == player),
+                iFOL = sum(event_type == "FACEOFF" & p2 == player),
+                iPENT2 = sum(na.omit(1*(event_type == "PENL" & p1 == player) +
+                                     1*(event_type == "PENL" & p1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENL" & p1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
+                             ),
+                iPENT5 = sum(na.omit(event_type == "PENL" & p1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)),
+                iPEND2 = sum(na.omit(1*(event_type == "PENL" & p2 == player) +
+                                     1*(event_type == "PENL" & p2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENL" & p2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
+                             ),
+                iPEND5 = sum(na.omit(event_type == "PENL" & p2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE))
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  } else if(venue_ == "away") {
+    
+    x %>%
+      summarise(venue = "Away",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CF = sum(event_type %in% st.corsi_events & event_team == away_team),
+                CA = sum(event_type %in% st.corsi_events & event_team == home_team),
+                FF = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                SF = sum(event_type %in% st.shot_events & event_team == away_team),
+                SA = sum(event_type %in% st.shot_events & event_team == home_team),
+                GF = sum(event_type == "GOAL" & event_team == away_team),
+                GA = sum(event_type == "GOAL" & event_team == home_team),
+                xGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                xGA = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                ACF = sum(na.omit(adj_away_corsi*(event_type %in% st.corsi_events & event_team == away_team))),
+                ACA = sum(na.omit(adj_home_corsi*(event_type %in% st.corsi_events & event_team == home_team))),
+                AFF = sum(na.omit(adj_away_fenwick*(event_type %in% st.fenwick_events & event_team == away_team))),
+                AFA = sum(na.omit(adj_home_fenwick*(event_type %in% st.fenwick_events & event_team == home_team))),
+                ASF = sum(na.omit(adj_away_shot*(event_type %in% st.shot_events & event_team == away_team))),
+                ASA = sum(na.omit(adj_home_shot*(event_type %in% st.shot_events & event_team == home_team))),
+                AGF = sum(na.omit(adj_away_goal*(event_type == "GOAL" & event_team == away_team))),
+                AGA = sum(na.omit(adj_home_goal*(event_type == "GOAL" & event_team == home_team))),
+                AxGF = sum(na.omit(adj_away_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == away_team))),
+                AxGA = sum(na.omit(adj_home_goal*prob_goal*(event_type %in% st.fenwick_events & event_team == home_team))),
+                OZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside != away_rinkside),
+                DZS = sum(event_type == "FACEOFF" & event_rinkside %in% c("L", "R") & event_rinkside == away_rinkside),
+                NZS = sum(event_type == "FACEOFF" & event_rinkside == "N"),
+                PENT2 = sum(1*(event_type == "PENL" & event_team == away_team) +
+                            1*(event_type == "PENL" & event_team == away_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == away_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PENT5 = sum(event_type == "PENL" & event_team == away_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                PEND2 = sum(1*(event_type == "PENL" & event_team == home_team) +
+                            1*(event_type == "PENL" & event_team == home_team & grepl("double minor", tolower(event_detail)) == TRUE) -
+                            1*(event_type == "PENL" & event_team == home_team & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                            ),
+                PEND5 = sum(event_type == "PENL" & event_team == home_team & grepl("fighting|major", tolower(event_detail)) == TRUE),
+                
+                iCF = sum(event_type %in% st.corsi_events & p1 == player),
+                iFF = sum(event_type %in% st.fenwick_events & p1 == player),
+                iSF = sum(event_type %in% st.shot_events & p1 == player),
+                ixGF = sum(na.omit(prob_goal*(event_type %in% st.fenwick_events & p1 == player))),
+                G = sum(event_type == "GOAL" & p1 == player),
+                A1 = sum(na.omit(event_type == "GOAL" & p2 == player)),
+                A2 = sum(na.omit(event_type == "GOAL" & p3 == player)),
+                iGVA = sum(event_type == "GIVEAWAY" & p1 == player),
+                iTKA = sum(event_type == "TAKEAWAY" & p1 == player),
+                iHF = sum(event_type == "HIT" & p1 == player),
+                iHA = sum(event_type == "HIT" & p2 == player),
+                iBLK = sum(event_type == "BLOCKED_SHOT" & p2 == player),
+                iFOW = sum(event_type == "FACEOFF" & p1 == player),
+                iFOL = sum(event_type == "FACEOFF" & p2 == player),
+                iPENT2 = sum(na.omit(1*(event_type == "PENL" & p1 == player) +
+                                     1*(event_type == "PENL" & p1 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENL" & p1 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
+                             ),
+                iPENT5 = sum(na.omit(event_type == "PENL" & p1 == player & grepl("fighting|major", tolower(event_detail)) == TRUE)),
+                iPEND2 = sum(na.omit(1*(event_type == "PENL" & p2 == player) +
+                                     1*(event_type == "PENL" & p2 == player & grepl("double minor", tolower(event_detail)) == TRUE) -
+                                     1*(event_type == "PENL" & p2 == player & grepl("ps \\-|match|fighting|major", tolower(event_detail)) == TRUE)
+                                     )
+                             ),
+                iPEND5 = sum(na.omit(event_type == "PENL" & p2 == player & grepl("fighting|major", tolower(event_detail)) == TRUE))
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  }
+  
+}
+
+# Summarize Goalie Stats (Old PBP Format)
+st.old_sum_goalie <- function(x, venue) {
+  
+  ## Description
+  # old_sum_goalie() summarizes all goalie counting stats from a Corsica 1.0 PBP data frame object
+  # x is expected to be a grouped data frame with home_goalie or away_goalie as a grouping variable for \
+  # venue = "home" and venue = "away" respectively
+  
+  venue_ <- tolower(as.character(venue))
+  
+  if(venue_ == "home") {
+    
+    x %>%
+      rename(player = home_goalie) %>%
+      summarise(venue = "Home",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CA = sum(event_type %in% st.corsi_events & event_team == away_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == away_team),
+                SA = sum(event_type %in% st.shot_events & event_team == away_team),
+                GA = sum(event_type == "GOAL" & event_team == away_team),
+                xGA = sum(na.omit((prob_goal/(prob_goal + prob_save))*(event_type %in% st.shot_events & event_team == away_team)))
+                ) %>%
+      data.frame() %>%
+      return()
+    
+  } else if(venue_ == "away") {
+    
+    x %>%
+      rename(player = away_goalie) %>%
+      summarise(venue = "Away",
+                GP = length(unique(game_id)),
+                TOI = sum(nabs(Event.Length))/60,
+                CA = sum(event_type %in% st.corsi_events & event_team == home_team),
+                FA = sum(event_type %in% st.fenwick_events & event_team == home_team),
+                SA = sum(event_type %in% st.shot_events & event_team == home_team),
+                GA = sum(event_type == "GOAL" & event_team == home_team),
+                xGA = sum(na.omit((prob_goal/(prob_goal + prob_save))*(event_type %in% st.shot_events & event_team == home_team)))
                 ) %>%
       data.frame() %>%
       return()

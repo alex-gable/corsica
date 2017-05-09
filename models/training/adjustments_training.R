@@ -2,7 +2,8 @@
 # Last edit: Manny (2017-05-07)
 
 ## Dependencies
-require(dplyr); require(RSQLite); require(doMC); require(Kmisc); require(survival); require(glmnet)
+require(dplyr); require(RSQLite); require(doMC); require(Kmisc); 
+require(survival); require(glmnet); require(caret)
 load("~/Documents/github/corsica/modules/user_functions.RData")
 load("~/Documents/github/corsica/modules/stats.RData")
 load("~/Documents/github/corsica/models/xg_model.RData")
@@ -99,15 +100,26 @@ model_data$elapsed[which(model_data$elapsed == 0)] <- 0.01
 # Save
 save(list = "model_data", file = "~/Documents/github/corsica/models/training/adjustments_training_data.RData")
 
+# Coerce to factor
+model_data$home_zonestart <- as.factor(model_data$home_zonestart)
+model_data$game_strength_state <- as.factor(model_data$game_strength_state)
+
 # Model home Corsi rate
-model_mat <- model.matrix(hazard_corsi ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+home_corsi_process <- dummyVars(hazard_corsi ~
+                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                                data = model_data,
+                                contrasts = TRUE,
+                                fullRank = TRUE
+                                )
+
+model_mat <- predict(home_corsi_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_corsi*model_data$is_home_team)
 
-cox_home_corsi <- cv.glmnet(x = model_mat,
+cox_home_corsi <- cv.glmnet(x = as.matrix(model_mat),
                             y = surv,
                             family = "cox",
                             nfolds = 10,
@@ -116,14 +128,21 @@ cox_home_corsi <- cv.glmnet(x = model_mat,
                             )
 
 # Model home Fenwick rate
-model_mat <- model.matrix(hazard_fenwick ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+home_fenwick_process <- dummyVars(hazard_fenwick ~
+                                  home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                                  data = model_data,
+                                  contrasts = TRUE,
+                                  fullRank = TRUE
+                                  )
+
+model_mat <- predict(home_fenwick_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_fenwick*model_data$is_home_team)
 
-cox_home_fenwick <- cv.glmnet(x = model_mat,
+cox_home_fenwick <- cv.glmnet(x = as.matrix(model_mat),
                               y = surv,
                               family = "cox",
                               nfolds = 10,
@@ -132,14 +151,21 @@ cox_home_fenwick <- cv.glmnet(x = model_mat,
                               )
 
 # Model home shot rate
-model_mat <- model.matrix(hazard_shot ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+home_shot_process <- dummyVars(hazard_shot ~
+                               home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                               data = model_data,
+                               contrasts = TRUE,
+                               fullRank = TRUE
+                               )
+
+model_mat <- predict(home_shot_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_shot*model_data$is_home_team)
 
-cox_home_shot <- cv.glmnet(x = model_mat,
+cox_home_shot <- cv.glmnet(x = as.matrix(model_mat),
                            y = surv,
                            family = "cox",
                            nfolds = 10,
@@ -148,14 +174,21 @@ cox_home_shot <- cv.glmnet(x = model_mat,
                            )
 
 # Model home goal rate
-model_mat <- model.matrix(hazard_goal ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+home_goal_process <- dummyVars(hazard_goal ~
+                               home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                               data = model_data,
+                               contrasts = TRUE,
+                               fullRank = TRUE
+                               )
+
+model_mat <- predict(home_goal_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_goal*model_data$is_home_team)
 
-cox_home_goal <- cv.glmnet(x = model_mat,
+cox_home_goal <- cv.glmnet(x = as.matrix(model_mat),
                            y = surv,
                            family = "cox",
                            nfolds = 10,
@@ -164,14 +197,21 @@ cox_home_goal <- cv.glmnet(x = model_mat,
                            )
 
 # Model away Corsi rate
-model_mat <- model.matrix(hazard_corsi ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+away_corsi_process <- dummyVars(hazard_corsi ~
+                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                                data = model_data,
+                                contrasts = TRUE,
+                                fullRank = TRUE
+                                )
+
+model_mat <- predict(away_corsi_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_corsi*(model_data$is_home_team == 0))
 
-cox_away_corsi <- cv.glmnet(x = model_mat,
+cox_away_corsi <- cv.glmnet(x = as.matrix(model_mat),
                             y = surv,
                             family = "cox",
                             nfolds = 10,
@@ -180,14 +220,21 @@ cox_away_corsi <- cv.glmnet(x = model_mat,
                             )
 
 # Model away Fenwick rate
-model_mat <- model.matrix(hazard_fenwick ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+away_fenwick_process <- dummyVars(hazard_fenwick ~
+                                  home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                                  data = model_data,
+                                  contrasts = TRUE,
+                                  fullRank = TRUE
+                                  )
+
+model_mat <- predict(away_fenwick_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_fenwick*(model_data$is_home_team == 0))
 
-cox_away_fenwick <- cv.glmnet(x = model_mat,
+cox_away_fenwick <- cv.glmnet(x = as.matrix(model_mat),
                               y = surv,
                               family = "cox",
                               nfolds = 10,
@@ -196,14 +243,21 @@ cox_away_fenwick <- cv.glmnet(x = model_mat,
                               )
 
 # Model away shot rate
-model_mat <- model.matrix(hazard_shot ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+away_shot_process <- dummyVars(hazard_shot ~
+                               home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                               data = model_data,
+                               contrasts = TRUE,
+                               fullRank = TRUE
+                               )
+
+model_mat <- predict(away_shot_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_shot*(model_data$is_home_team == 0))
 
-cox_away_shot <- cv.glmnet(x = model_mat,
+cox_away_shot <- cv.glmnet(x = as.matrix(model_mat),
                            y = surv,
                            family = "cox",
                            nfolds = 10,
@@ -212,14 +266,21 @@ cox_away_shot <- cv.glmnet(x = model_mat,
                            )
 
 # Model away goal rate
-model_mat <- model.matrix(hazard_goal ~
-                          as.factor(home_zonestart)*seconds_since + game_strength_state + home_score_adv*game_seconds,
-                          data = model_data
-                          )
+away_goal_process <- dummyVars(hazard_goal ~
+                               home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
+                               data = model_data,
+                               contrasts = TRUE,
+                               fullRank = TRUE
+                               )
+
+model_mat <- predict(away_goal_process,
+                     model_data
+                     ) %>%
+               data.frame()
 
 surv <- Surv(model_data$elapsed, model_data$hazard_goal*(model_data$is_home_team == 0))
 
-cox_away_goal <- cv.glmnet(x = model_mat,
+cox_away_goal <- cv.glmnet(x = as.matrix(model_mat),
                            y = surv,
                            family = "cox",
                            nfolds = 10,
@@ -228,7 +289,15 @@ cox_away_goal <- cv.glmnet(x = model_mat,
                            )
 
 # Save
-save(list = c("cox_home_corsi",
+save(list = c("home_corsi_process",
+              "home_fenwick_process",
+              "home_shot_process",
+              "home_goal_process",
+              "away_corsi_process",
+              "away_fenwick_process",
+              "away_shot_process",
+              "away_goal_process",
+              "cox_home_corsi",
               "cox_home_fenwick",
               "cox_home_shot",
               "cox_home_goal",

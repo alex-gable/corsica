@@ -95,10 +95,20 @@ bind_rows(
     st.sum_skater("Away")
 ) %>%
   data.frame() ->
-  skater_stats_full
+  skater_stats
 }
 
 ## Full Goalie Stats
 {
-
+bind_rows(
+  pbp %>%
+    group_by(season, session, game_id, game_date, home_goalie, game_score_state, game_strength_state) %>%
+    st.sum_goalie("Home"),
+  
+  pbp %>%
+    group_by(season, session, game_id, game_date, away_goalie, game_score_state, game_strength_state) %>%
+    st.sum_goalie("Away")
+) %>%
+  data.frame() ->
+  goalie_stats
 }
