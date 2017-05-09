@@ -7,12 +7,14 @@ require(RCurl); require(rjson); require(dplyr); require(lubridate); require(doMC
 load("~/Documents/github/corsica/modules/user_functions.RData")
 load("~/Documents/github/corsica/modules/dryscrape.RData")
 load("~/Documents/github/corsica/modules/stats.RData")
+load("~/Documents/github/corsica/models/xg_model.RData")
+load("~/Documents/github/corsica/models/adjustments_model.RData")
 
 
 ## Test Scraper
 # Compile games
-game_list <- ds.compile_games(games = 20375:20375,
-                              season = "20142015",
+game_list <- ds.compile_games(games = 30225:30225,
+                              season = "20162017",
                               try_tolerance = 3,
                               agents = ds.user_agents
                               )

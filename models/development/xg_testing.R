@@ -218,7 +218,7 @@ foreach(i = 1:4, .combine = "rbind") %do% {
   
   model_mat <- data.frame(outcome = as.factor(1*(model_data$is_save) + 2*(model_data$is_goal) + 1),
                           model.matrix(is_goal ~ 
-                                       poly(event_distance, 3) + poly(event_angle, 3) + 
+                                       poly(event_distance, 3, raw = TRUE) + poly(event_angle, 3, raw = TRUE) + 
                                        event_type_last*same_team_last*(seconds_since_last + distance_from_last) + 
                                        is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
                                        data = model_data[, c("is_goal", vars)]
@@ -324,8 +324,10 @@ foreach(i = 1:4, .combine = "rbind") %do% {
 
 # Baseline
 # LL1 (ALL) = 0.2378588727 || LL2 (ALL) = 0.6052891319
-# Model V4 (folds = 4, nlambda = 100, alpha = 1, vars = 10, interactions = 3, degree = 3)
+# Model V4 (folds = 4, nlambda = 100, alpha = 1, vars = 10, interactions = 3, degree = 3/2)
 # LL1 (ALL) = 0.2109291 || LL2 (ALL) = 0.585791 || LL1 (5v5) = 0.1877815 || LL2 (5v5) = 0.586289 || LL1 (NEN) = 0.2058594 || LL2 (NEN) = 0.5851544
+# Model V4 (folds = 4, nlambda = 100, alpha = 1, vars = 10, interactions = 3, degree = 3/0 ** RAW POLYNOMIALS **)
+# LL1 (ALL) =  || LL2 (ALL) =  || LL1 (5v5) =  || LL2 (5v5) =  || LL1 (NEN) =  || LL2 (NEN) = 
 
 # Neural network
 foreach(i = 1:4, .combine = "rbind") %do% {
