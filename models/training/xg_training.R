@@ -193,7 +193,7 @@ xg_process <- dummyVars(is_goal ~
                         is_home_team + is_EN + shooter_strength_state + shooter_score_adv,
                         data = model_data[, c("is_goal", vars)],
                         contrasts = TRUE,
-                        fullRank = TRUE
+                        fullRank = FALSE
                         )
 
 # Build model matrix

@@ -229,6 +229,7 @@ st.pbp_enhance <- function(pbp) {
          is_home_team = 1*(event_team == home_team),
          is_EN = 1*({event_team == home_team & away_goalie == 0} | {event_team == away_team & home_goalie == 0})
          ) %>%
+  select(-c(home_goalie, away_goalie)) %>%
   data.frame() ->
   model_data
   
