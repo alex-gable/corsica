@@ -109,7 +109,7 @@ home_corsi_process <- dummyVars(hazard_corsi ~
                                 home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                 data = model_data,
                                 contrasts = TRUE,
-                                fullRank = TRUE
+                                fullRank = FALSE
                                 )
 
 model_mat <- predict(home_corsi_process,
@@ -132,7 +132,7 @@ home_fenwick_process <- dummyVars(hazard_fenwick ~
                                   home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                   data = model_data,
                                   contrasts = TRUE,
-                                  fullRank = TRUE
+                                  fullRank = FALSE
                                   )
 
 model_mat <- predict(home_fenwick_process,
@@ -155,7 +155,7 @@ home_shot_process <- dummyVars(hazard_shot ~
                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                data = model_data,
                                contrasts = TRUE,
-                               fullRank = TRUE
+                               fullRank = FALSE
                                )
 
 model_mat <- predict(home_shot_process,
@@ -178,7 +178,7 @@ home_goal_process <- dummyVars(hazard_goal ~
                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                data = model_data,
                                contrasts = TRUE,
-                               fullRank = TRUE
+                               fullRank = FALSE
                                )
 
 model_mat <- predict(home_goal_process,
@@ -201,7 +201,7 @@ away_corsi_process <- dummyVars(hazard_corsi ~
                                 home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                 data = model_data,
                                 contrasts = TRUE,
-                                fullRank = TRUE
+                                fullRank = FALSE
                                 )
 
 model_mat <- predict(away_corsi_process,
@@ -224,7 +224,7 @@ away_fenwick_process <- dummyVars(hazard_fenwick ~
                                   home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                   data = model_data,
                                   contrasts = TRUE,
-                                  fullRank = TRUE
+                                  fullRank = FALSE
                                   )
 
 model_mat <- predict(away_fenwick_process,
@@ -247,7 +247,7 @@ away_shot_process <- dummyVars(hazard_shot ~
                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                data = model_data,
                                contrasts = TRUE,
-                               fullRank = TRUE
+                               fullRank = FALSE
                                )
 
 model_mat <- predict(away_shot_process,
@@ -270,7 +270,7 @@ away_goal_process <- dummyVars(hazard_goal ~
                                home_zonestart*seconds_since + game_strength_state + home_score_adv*game_seconds,
                                data = model_data,
                                contrasts = TRUE,
-                               fullRank = TRUE
+                               fullRank = FALSE
                                )
 
 model_mat <- predict(away_goal_process,

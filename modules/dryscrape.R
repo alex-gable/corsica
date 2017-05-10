@@ -679,15 +679,17 @@ ds.scrape_game <- function(game_id, season, try_tolerance = 3, agents = "Mozilla
       summarise(home_right = sum(event_type %in% st.fenwick_events & coords_x > 25 & event_team == home_team_),
                 home_left = sum(event_type %in% st.fenwick_events & coords_x < -25 & event_team == home_team_)
                 ) %>%
-      mutate(home_side = as.factor(1*(home_right > home_left) + 2*(home_left > home_right)),
-             away_side = as.factor(3 - nabs(home_side))
+      mutate(home_side = 1*(home_right > home_left) + 2*(home_left > home_right),
+             away_side = 3 - nabs(home_side)
              ) %>%
       select(game_period, home_side, away_side) %>%
       data.frame() ->
       rinkside_df
     
-    levels(rinkside_df$home_side) <- c("L", "R")
-    levels(rinkside_df$away_side) <- c("L", "R")
+    rinkside_df$home_side[which(rinkside_df$home_side == 1)] <- "L"
+    rinkside_df$home_side[which(rinkside_df$home_side == 2)] <- "R"
+    rinkside_df$away_side[which(rinkside_df$away_side == 1)] <- "L"
+    rinkside_df$away_side[which(rinkside_df$away_side == 2)] <- "R"
     
   }
   

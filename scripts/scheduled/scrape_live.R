@@ -84,6 +84,21 @@ pbp$event_type[which(pbp$event_type == "BLOCK")] <- "BLOCKED_SHOT"
 pbp$event_type[which(pbp$event_type == "MISS")] <- "MISSED_SHOT"
 pbp$event_type[which(pbp$event_type == "GIVE")] <- "GIVEAWAY"
 
+# Replace NA goalies
+pbp$home_goalie[which(is.na(pbp$home_goalie) == TRUE)] <- (pbp$h1.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G") + 
+                                                          (pbp$h2.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G") + 
+                                                          (pbp$h3.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G") + 
+                                                          (pbp$h4.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G") + 
+                                                          (pbp$h5.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G") + 
+                                                          (pbp$h6.pos[which(is.na(pbp$home_goalie) == TRUE)] == "G")
+
+pbp$away_goalie[which(is.na(pbp$away_goalie) == TRUE)] <- (pbp$a1.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G") + 
+                                                          (pbp$a2.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G") + 
+                                                          (pbp$a3.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G") + 
+                                                          (pbp$a4.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G") + 
+                                                          (pbp$a5.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G") + 
+                                                          (pbp$a6.pos[which(is.na(pbp$away_goalie) == TRUE)] == "G")
+
 # Rename session
 pbp$session[which(pbp$session == "Regular")] <- "R"
 pbp$session[which(pbp$session == "Playoffs")] <- "P"
@@ -94,15 +109,17 @@ pbp %>%
   summarise(home_right = sum(event_type %in% st.fenwick_events & coords_x > 25 & event_team == home_team),
             home_left = sum(event_type %in% st.fenwick_events & coords_x < -25 & event_team == home_team)
             ) %>%
-  mutate(home_side = as.factor(1*(home_right > home_left) + 2*(home_left > home_right)),
-         away_side = as.factor(3 - nabs(home_side))
+  mutate(home_side = 1*(home_right > home_left) + 2*(home_left > home_right),
+         away_side = 3 - nabs(home_side)
          ) %>%
   select(game_period, home_side, away_side) %>%
   data.frame() ->
   rinkside_df
     
-levels(rinkside_df$home_side) <- c("L", "R")
-levels(rinkside_df$away_side) <- c("L", "R")
+rinkside_df$home_side[which(rinkside_df$home_side == 1)] <- "L"
+rinkside_df$home_side[which(rinkside_df$home_side == 2)] <- "R"
+rinkside_df$away_side[which(rinkside_df$away_side == 1)] <- "L"
+rinkside_df$away_side[which(rinkside_df$away_side == 2)] <- "R"
 
 pbp$home_rinkside = rinkside_df$home_side[match(pbp$game_period, rinkside_df$game_period)]
 pbp$away_rinkside = rinkside_df$away_side[match(pbp$game_period, rinkside_df$game_period)]
